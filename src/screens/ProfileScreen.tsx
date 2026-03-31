@@ -8,7 +8,9 @@ import {
   TextInput,
   ImageBackground,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
 import { palette, spacing, typography } from '../tokens';
 import {
   UserProfile,
@@ -97,8 +99,7 @@ function YesNo({
 // ─────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────
-export function ProfileScreen({ route }: any) {
-  // Seed from onboarding if coming fresh, otherwise use defaults
+export function ProfileScreen({ route, navigation }: any) {
   const onboardingData: UserProfile | undefined = route?.params?.onboardingProfile;
 
   const [profile, setProfile] = useState<UserProfile>(
@@ -144,7 +145,20 @@ export function ProfileScreen({ route }: any) {
   const removeAllergy = (a: string) =>
     set('allergies', profile.allergies.filter((x) => x !== a));
 
-  const irisContext = buildIrisContext(profile);
+  const handleLogout = async () => {
+    try {
+      // Clear onboarding flag if you want them to restart on next login
+      await AsyncStorage.removeItem('hasOnboarded');
+      // Sign out via Firebase instead of a manual navigation.replace
+      await auth().signOut();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  // Grab the user for a dynamic title
+  const user = auth().currentUser;
+  const displayTitle = user?.displayName ? `${user.displayName.split(' ')[0]}'s Profile` : 'Health Profile';
 
   return (
     <ImageBackground
@@ -163,15 +177,7 @@ export function ProfileScreen({ route }: any) {
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.headerLabel}>YOUR DATA</Text>
-          <Text style={styles.headerTitle}>
-            {profile.name ? `${profile.name}'s Profile` : 'Health Profile'}
-          </Text>
-          <View style={styles.irisSync}>
-            <View style={styles.irisSyncDot} />
-            <Text style={styles.irisSyncText}>
-              {onboardingData ? 'Imported from onboarding · Synced to Iris' : 'Synced to Iris'}
-            </Text>
-          </View>
+          <Text style={styles.headerTitle}>{displayTitle}</Text>
         </View>
 
         {/* ── THIS VISIT ── */}
@@ -446,41 +452,13 @@ export function ProfileScreen({ route }: any) {
           />
         </Section>
 
-        {/* ── RECENT LAB RESULTS ── */}
-        <Section label="RECENT LAB RESULTS">
-          <Text style={styles.fieldHint}>
-            HbA1c, cholesterol, CBC — paste or type values from your last check-up.
-          </Text>
-          <TextInput
-            style={[styles.ghostInput, { minHeight: 80 }]}
-            placeholder="e.g. HbA1c: 6.1%, Total cholesterol: 195 mg/dL"
-            placeholderTextColor={palette.muted}
-            multiline
-            value={profile.labResults}
-            onChangeText={(v) => set('labResults', v)}
-          />
-        </Section>
-
-        {/* ── IRIS CONTEXT PREVIEW ── */}
-        <View style={styles.irisPreviewCard}>
-          <View style={styles.irisPreviewHeader}>
-            <View style={styles.irisSyncDot} />
-            <Text style={styles.irisPreviewTitle}>What Iris knows about you</Text>
-          </View>
-          <Text style={styles.irisPreviewBody} numberOfLines={6}>
-            {irisContext}
-          </Text>
-          <Text style={styles.irisPreviewHint}>
-            This is sent to Iris at the start of every session.
-          </Text>
-        </View>
-
-        {/* CTA */}
-        <TouchableOpacity style={styles.heroButton} activeOpacity={0.85}>
-          <Text style={styles.heroButtonText}>Generate Cheat Sheet</Text>
-          <View style={styles.heroArrow}>
-            <Ionicons name="arrow-forward" size={18} color={palette.terracotta} />
-          </View>
+        {/* LOGOUT */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          activeOpacity={0.85}
+          onPress={handleLogout}
+        >
+          <Text style={styles.logoutButtonText}>Sign out</Text>
         </TouchableOpacity>
 
       </ScrollView>
@@ -504,8 +482,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xxxl * 1.5,
     paddingBottom: spacing.xxxl,
   },
-
-  // Header
   header: { marginBottom: spacing.xl },
   headerLabel: {
     color: palette.muted,
@@ -539,8 +515,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontWeight: '600',
   },
-
-  // Section
   section: { marginBottom: spacing.lg },
   sectionLabelRow: { marginBottom: spacing.sm },
   sectionPill: {
@@ -564,8 +538,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.04)',
   },
-
-  // Fields
   fieldLabel: {
     color: palette.muted,
     fontSize: 11,
@@ -608,8 +580,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
     marginVertical: spacing.md,
   },
-
-  // List items (medications)
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -668,8 +638,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontWeight: '700',
   },
-
-  // Chips
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -698,8 +666,6 @@ const styles = StyleSheet.create({
     color: '#1F8FAF',
     fontWeight: '700',
   },
-
-  // Allergies
   allergyPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -733,8 +699,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Yes/No
   yesNoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -773,8 +737,6 @@ const styles = StyleSheet.create({
   yesNoBtnTextActive: {
     color: '#1F8FAF',
   },
-
-  // Iris context preview
   irisPreviewCard: {
     backgroundColor: 'rgba(31, 143, 175, 0.05)',
     borderRadius: 24,
@@ -809,34 +771,22 @@ const styles = StyleSheet.create({
     color: 'rgba(31, 143, 175, 0.6)',
     fontStyle: 'italic',
   },
-
-  // CTA
-  heroButton: {
-    backgroundColor: palette.terracotta,
-    borderRadius: 20,
-    paddingVertical: 20,
-    paddingHorizontal: spacing.xl,
+  logoutButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: palette.terracotta,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  heroButtonText: {
-    color: palette.white,
-    fontSize: 18,
-    fontFamily: typography.sans,
-    fontWeight: '700',
-  },
-  heroArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: palette.white,
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    marginTop: spacing.sm,
+  },
+  logoutButtonText: {
+    color: palette.muted,
+    fontSize: 15,
+    fontFamily: typography.sans,
+    fontWeight: '600',
   },
 });

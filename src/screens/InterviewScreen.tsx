@@ -1,9 +1,14 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth from '@react-native-firebase/auth';
 import { palette, spacing, typography } from '../tokens';
 
 export function InterviewScreen({ navigation }: any) {
+  // Grab the user to dynamically say their name
+  const user = auth().currentUser;
+  const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'there';
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -31,7 +36,7 @@ export function InterviewScreen({ navigation }: any) {
           </View>
           <View style={styles.aiBubble}>
             <Text style={styles.aiText}>
-              Hello Cire. I'm here to help you prepare for your clinic visit. Let's start simple: what is the main reason you are seeing the doctor today?
+              Hello {firstName}. I'm here to help you prepare for your clinic visit. Let's start simple: what is the main reason you are seeing the doctor today?
             </Text>
           </View>
         </View>
@@ -81,7 +86,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: palette.muted,
     fontSize: 10,
-    fontFamily: typography.sans, // <-- Added Sans
+    fontFamily: typography.sans,
     fontWeight: '800',
     letterSpacing: 1.5,
   },
@@ -130,7 +135,7 @@ const styles = StyleSheet.create({
   aiText: {
     color: palette.ink,
     fontSize: 16,
-    fontFamily: typography.sans, // <-- Added Sans
+    fontFamily: typography.sans,
     lineHeight: 24,
   },
   inputWrapper: {
@@ -160,7 +165,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 14,
     fontSize: 16,
-    fontFamily: typography.sans, // <-- Added Sans
+    fontFamily: typography.sans,
     color: palette.ink,
   },
   sendButton: {

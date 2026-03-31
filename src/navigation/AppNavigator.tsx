@@ -1,15 +1,17 @@
-import React from 'react';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import React, { useState, useEffect } from 'react';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {palette} from '../tokens';
+import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { palette } from '../tokens';
 
 // Screens
-import {HomeScreen}       from '../screens/HomeScreen';
-import {InterviewScreen}  from '../screens/InterviewScreen';
-import {ProfileScreen}    from '../screens/ProfileScreen';
-import {WelcomeScreen}    from '../screens/WelcomeScreen';
-import {OnboardingScreen} from '../screens/OnboardingScreen';
+import { HomeScreen }       from '../screens/HomeScreen';
+import { InterviewScreen }  from '../screens/InterviewScreen';
+import { ProfileScreen }    from '../screens/ProfileScreen';
+import { WelcomeScreen }    from '../screens/WelcomeScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -55,11 +57,53 @@ function MainTabs({ route }: any) {
 }
 
 export function AppNavigator() {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'MainTabs'>('Onboarding');
+
+  useEffect(() => {
+    const subscriber = auth().onAuthStateChanged(async (currentUser) => {
+      setUser(currentUser);
+
+      if (currentUser) {
+        // Check if the user has already completed onboarding
+        const hasOnboarded = await AsyncStorage.getItem('hasOnboarded');
+        if (hasOnboarded === 'true') {
+          setInitialRoute('MainTabs');
+        } else {
+          setInitialRoute('Onboarding');
+        }
+      }
+
+      if (initializing) setInitializing(false);
+    });
+
+    return subscriber; // Unsubscribe on unmount
+  }, [initializing]);
+
+  if (initializing) return null;
+
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
-      <Stack.Screen name="Welcome"    component={WelcomeScreen} />
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="MainTabs"   component={MainTabs} />
+      {user ? (
+        // AUTHENTICATED STACK
+        <Stack.Group>
+          {initialRoute === 'Onboarding' ? (
+            <>
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="MainTabs"   component={MainTabs} />
+            </>
+          ) : (
+            <>
+              <Stack.Screen name="MainTabs"   component={MainTabs} />
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            </>
+          )}
+        </Stack.Group>
+      ) : (
+        // UNAUTHENTICATED STACK
+        <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      )}
     </Stack.Navigator>
   );
 }

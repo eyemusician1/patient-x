@@ -7,9 +7,14 @@ import {
   TouchableOpacity,
   ImageBackground,
 } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import { palette, spacing, typography } from '../tokens';
 
 export function HomeScreen({ navigation }: any) {
+  // Grab the user and extract their first name for a personalized greeting
+  const user = auth().currentUser;
+  const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Guest';
+
   const currentDate = new Date()
     .toLocaleDateString('en-US', {
       weekday: 'long',
@@ -35,7 +40,7 @@ export function HomeScreen({ navigation }: any) {
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.dateLabel}>{currentDate}</Text>
-          <Text style={styles.greeting}>Hello, Cire.</Text>
+          <Text style={styles.greeting}>Hello, {firstName}.</Text>
         </View>
 
         {/* HERO CARD */}
@@ -149,8 +154,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.serif,
     letterSpacing: -1,
   },
-
-  // --- HERO ---
   heroCard: {
     backgroundColor: palette.terracotta,
     borderRadius: 28,
@@ -203,8 +206,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     lineHeight: 20,
   },
-
-  // --- BENTO GRID ---
   bentoGrid: { gap: spacing.md },
   bentoRow: {
     flexDirection: 'row',
@@ -221,8 +222,6 @@ const styles = StyleSheet.create({
   halfWidth: {
     flex: 1,
   },
-
-  // Assistant Card
   irisCard: {
     backgroundColor: 'rgba(31, 143, 175, 0.05)',
     borderColor: 'rgba(31, 143, 175, 0.10)',
@@ -254,8 +253,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     lineHeight: 18,
   },
-
-  // Typography
   navBadge: {
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     paddingVertical: 4,
@@ -283,8 +280,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     marginTop: 2,
   },
-
-  // Status Card
   statusCard: {},
   statusHeader: {},
   statusDot: {

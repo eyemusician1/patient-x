@@ -1,4 +1,4 @@
-package com.voxpatient
+package com.iris
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

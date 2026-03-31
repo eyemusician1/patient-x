@@ -15,6 +15,7 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { palette, spacing, typography } from '../tokens';
 import { Medication, UserProfile } from '../types/profile';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -22,28 +23,21 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // TYPES
 // ─────────────────────────────────────────────
 
-// Re-use UserProfile shape for onboarding
-// (subset — lifestyle is flattened for simplicity)
 interface OnboardingProfile {
-  // Step 1 — Personal Info
   name: string;
   age: string;
   sex: string;
   bloodType: string;
-  // Step 2 — Vitals
   height: string;
   weight: string;
   bloodPressure: string;
   bloodSugar: string;
-  // Step 3 — Lifestyle
   occupation: string;
   smoking: boolean | null;
   alcohol: boolean | null;
   physicalLabor: boolean | null;
-  // Step 4 — Family History & Conditions
   familyHistory: string[];
   conditions: string[];
-  // Step 5 — Medications & Allergies
   medications: Medication[];
   allergies: string[];
 }
@@ -119,7 +113,7 @@ function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: k
     <View style={styles.stepBody}>
       <FieldLabel>Full name</FieldLabel>
       <InlineInput
-        placeholder="e.g. Maria Santos"
+        placeholder=""
         value={profile.name}
         onChangeText={(v) => set('name', v)}
       />
@@ -127,7 +121,7 @@ function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: k
         <View style={styles.fieldHalf}>
           <FieldLabel>Age</FieldLabel>
           <InlineInput
-            placeholder="e.g. 34"
+            placeholder=""
             keyboardType="numeric"
             value={profile.age}
             onChangeText={(v) => set('age', v)}
@@ -136,7 +130,7 @@ function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: k
         <View style={styles.fieldHalf}>
           <FieldLabel>Blood type</FieldLabel>
           <InlineInput
-            placeholder="e.g. O+"
+            placeholder=""
             value={profile.bloodType}
             onChangeText={(v) => set('bloodType', v)}
           />
@@ -336,7 +330,7 @@ function StepMeds({ profile, set }: { profile: OnboardingProfile; set: (k: keyof
 // MAIN SCREEN
 // ─────────────────────────────────────────────
 export function OnboardingScreen({ navigation }: any) {
-  const [step, setStep] = useState(0); // 0-indexed
+  const [step, setStep] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [profile, setProfile] = useState<OnboardingProfile>({
@@ -393,9 +387,10 @@ export function OnboardingScreen({ navigation }: any) {
     if (step > 0) transition(step - 1);
   };
 
-  const handleSave = () => {
-    // Map the flat onboarding profile into the full UserProfile shape
-    // so ProfileScreen can consume it directly.
+  const handleSave = async () => {
+    // Set flag in AsyncStorage so the user skips this next time
+    await AsyncStorage.setItem('hasOnboarded', 'true');
+
     const userProfile: UserProfile = {
       name: profile.name,
       age: profile.age,
@@ -453,7 +448,6 @@ export function OnboardingScreen({ navigation }: any) {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* ── TOP NAV ── */}
         <View style={styles.topNav}>
           {step > 0 ? (
             <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
@@ -463,7 +457,6 @@ export function OnboardingScreen({ navigation }: any) {
             <View style={styles.backBtn} />
           )}
 
-          {/* Step dots */}
           <View style={styles.dots}>
             {STEPS.map((_, i) => (
               <View
@@ -482,7 +475,6 @@ export function OnboardingScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* ── PROGRESS BAR ── */}
         <View style={styles.progressTrack}>
           <Animated.View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
@@ -493,7 +485,6 @@ export function OnboardingScreen({ navigation }: any) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── STEP HEADER ── */}
           <Animated.View style={{ opacity: fadeAnim }}>
             <View style={styles.stepHeader}>
               <View style={styles.stepBadge}>
@@ -503,14 +494,12 @@ export function OnboardingScreen({ navigation }: any) {
               <Text style={styles.stepSub}>{current.sub}</Text>
             </View>
 
-            {/* ── CARD ── */}
             <View style={styles.card}>
               {renderStep()}
             </View>
           </Animated.View>
         </ScrollView>
 
-        {/* ── BOTTOM CTA ── */}
         <View style={styles.bottomBar}>
           <Text style={styles.stepCounter}>{step + 1} of {STEPS.length}</Text>
           <TouchableOpacity style={styles.nextBtn} onPress={goNext} activeOpacity={0.85}>
@@ -531,9 +520,6 @@ export function OnboardingScreen({ navigation }: any) {
   );
 }
 
-// ─────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   background: { flex: 1, backgroundColor: palette.bg },
@@ -541,8 +527,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(238, 247, 249, 0.54)',
   },
-
-  // Top nav
   topNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -584,8 +568,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontWeight: '600',
   },
-
-  // Progress bar
   progressTrack: {
     height: 2,
     backgroundColor: 'rgba(0,0,0,0.06)',
@@ -598,14 +580,10 @@ const styles = StyleSheet.create({
     backgroundColor: palette.terracotta,
     borderRadius: 2,
   },
-
-  // Scroll
   scrollContent: {
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.xxxl,
   },
-
-  // Step header
   stepHeader: {
     marginBottom: spacing.lg,
   },
@@ -638,8 +616,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     lineHeight: 20,
   },
-
-  // Card
   card: {
     backgroundColor: palette.white,
     borderRadius: 28,
@@ -648,8 +624,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.04)',
   },
   stepBody: { gap: 2 },
-
-  // Fields
   fieldLabel: {
     color: palette.muted,
     fontSize: 11,
@@ -697,8 +671,6 @@ const styles = StyleSheet.create({
     color: '#1F8FAF',
     lineHeight: 18,
   },
-
-  // Chips
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: {
     backgroundColor: 'rgba(0,0,0,0.05)',
@@ -719,8 +691,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextActive: { color: '#1F8FAF', fontWeight: '700' },
-
-  // Yes/No
   yesNoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,8 +724,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   yesNoBtnTextActive: { color: '#1F8FAF' },
-
-  // Medications list
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -813,8 +781,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.sans,
     fontWeight: '700',
   },
-
-  // Allergies
   allergyPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -848,8 +814,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Bottom bar
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',

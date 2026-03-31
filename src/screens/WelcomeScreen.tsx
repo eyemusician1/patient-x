@@ -1,12 +1,20 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ImageBackground } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import { palette, typography } from '../tokens'; // <-- Added typography import
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ImageBackground, ActivityIndicator } from 'react-native';
+import { palette, typography } from '../tokens';
+import { AuthService } from '../services/authService';
 
-export function WelcomeScreen({ navigation }: any) {
+export function WelcomeScreen() {
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = () => {
-    navigation.replace('MainTabs');
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await AuthService.signInWithGoogle();
+      // Notice: No navigation call here! AppNavigator handles the swap.
+    } catch (error) {
+      console.log('Login cancelled or failed:', error);
+      setLoading(false);
+    }
   };
 
   return (
@@ -22,17 +30,18 @@ export function WelcomeScreen({ navigation }: any) {
           <Text style={styles.heroText}>Iris</Text>
           <Text style={styles.subtitle}>Where patient advocacy begins</Text>
 
-          <TouchableOpacity style={styles.button} onPress={handleSignIn} activeOpacity={0.5}>
-            <Text style={styles.buttonText}>Get Started</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.7}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={palette.ink} />
+            ) : (
+              <Text style={styles.buttonText}>Get Started</Text>
+            )}
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerLinks}>Terms of Service  ·  Privacy Policy</Text>
-          <Text style={styles.footerSecurity}>
-            <Ionicons name="shield-checkmark" size={10} color={palette.muted} />
-            {' '}Secure & Confidential
-          </Text>
         </View>
       </View>
     </ImageBackground>
@@ -40,26 +49,18 @@ export function WelcomeScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
+  background: { flex: 1, width: '100%', height: '100%' },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.55)',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  mainContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  mainContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   heroText: {
     color: '#1F8FAF',
     fontSize: 118,
-    fontFamily: typography.serif, // <-- Added Serif
+    fontFamily: typography.serif,
     fontWeight: '900',
     letterSpacing: -3,
     marginBottom: 10,
@@ -69,46 +70,30 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   subtitle: {
-    color: palette.body,
+    color: palette.muted,
     fontSize: 18,
-    fontFamily: typography.sans, // <-- Added Sans
+    fontFamily: typography.sans,
     fontWeight: '400',
     marginBottom: 40,
     textAlign: 'center',
   },
   button: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderColor: 'rgba(0, 0, 0, 0.12)',
+    backgroundColor: palette.white,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
     borderWidth: 1,
     borderRadius: 40,
     paddingVertical: 14,
-    paddingHorizontal: 48,
+    paddingHorizontal: 32,
+    minWidth: 240,
   },
   buttonText: {
     color: palette.ink,
     fontSize: 16,
-    fontFamily: typography.sans, // <-- Added Sans
-    fontWeight: '500',
+    fontFamily: typography.sans,
+    fontWeight: '600',
     letterSpacing: 0.5,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingBottom: 40,
-  },
-  footerLinks: {
-    color: palette.muted,
-    fontSize: 12,
-    fontFamily: typography.sans, // <-- Added Sans
-    marginBottom: 10,
-    fontWeight: '500',
-  },
-  footerSecurity: {
-    color: palette.muted,
-    fontSize: 11,
-    fontFamily: typography.sans, // <-- Added Sans
-    flexDirection: 'row',
-    alignItems: 'center',
   },
 });
