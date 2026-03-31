@@ -1,26 +1,842 @@
-import React from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {palette, spacing, typography} from '../tokens';
+import React, { useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ImageBackground,
+} from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { palette, spacing, typography } from '../tokens';
+import {
+  UserProfile,
+  Medication,
+  Lifestyle,
+  DEFAULT_PROFILE,
+  buildIrisContext,
+} from '../types/profile';
 
-export function ProfileScreen() {
+// ─────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────
+
+const FAMILY_HISTORY_OPTIONS = [
+  'Diabetes', 'Hypertension', 'Heart disease',
+  'Cancer', 'Asthma', 'Kidney disease', 'Stroke',
+];
+
+const CONDITION_OPTIONS = [
+  'Hypertension', 'Diabetes', 'Asthma', 'Arthritis',
+  'Tuberculosis', 'Heart disease', 'Thyroid disorder',
+];
+
+// ─────────────────────────────────────────────
+// SECTION WRAPPER
+// ─────────────────────────────────────────────
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
+    <View style={styles.section}>
+      <View style={styles.sectionLabelRow}>
+        <View style={styles.sectionPill}>
+          <Text style={styles.sectionLabel}>{label}</Text>
+        </View>
+      </View>
+      <View style={styles.card}>{children}</View>
     </View>
   );
 }
 
+// ─────────────────────────────────────────────
+// TOGGLE CHIP
+// ─────────────────────────────────────────────
+function Chip({
+  label, active, onPress,
+}: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.chip, active && styles.chipActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─────────────────────────────────────────────
+// YES/NO TOGGLE
+// ─────────────────────────────────────────────
+function YesNo({
+  label, value, onChange,
+}: { label: string; value: boolean | null; onChange: (v: boolean) => void }) {
+  return (
+    <View style={styles.yesNoRow}>
+      <Text style={styles.yesNoLabel}>{label}</Text>
+      <View style={styles.yesNoButtons}>
+        <TouchableOpacity
+          style={[styles.yesNoBtn, value === true && styles.yesNoBtnActive]}
+          onPress={() => onChange(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.yesNoBtnText, value === true && styles.yesNoBtnTextActive]}>Yes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.yesNoBtn, value === false && styles.yesNoBtnActive]}
+          onPress={() => onChange(false)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.yesNoBtnText, value === false && styles.yesNoBtnTextActive]}>No</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MAIN SCREEN
+// ─────────────────────────────────────────────
+export function ProfileScreen({ route }: any) {
+  // Seed from onboarding if coming fresh, otherwise use defaults
+  const onboardingData: UserProfile | undefined = route?.params?.onboardingProfile;
+
+  const [profile, setProfile] = useState<UserProfile>(
+    onboardingData ?? DEFAULT_PROFILE
+  );
+
+  const [newMed, setNewMed] = useState({ name: '', info: '' });
+  const [addingMed, setAddingMed] = useState(false);
+  const [newAllergy, setNewAllergy] = useState('');
+  const [addingAllergy, setAddingAllergy] = useState(false);
+
+  const set = (key: keyof UserProfile, value: any) =>
+    setProfile((p) => ({ ...p, [key]: value }));
+
+  const setLifestyle = (key: keyof Lifestyle, value: any) =>
+    setProfile((p) => ({ ...p, lifestyle: { ...p.lifestyle, [key]: value } }));
+
+  const toggleChip = (list: keyof UserProfile, item: string) => {
+    const arr = profile[list] as string[];
+    set(list, arr.includes(item) ? arr.filter((x) => x !== item) : [...arr, item]);
+  };
+
+  const addMed = () => {
+    if (!newMed.name.trim()) return;
+    set('medications', [
+      ...profile.medications,
+      { id: Date.now().toString(), name: newMed.name.trim(), info: newMed.info.trim() },
+    ]);
+    setNewMed({ name: '', info: '' });
+    setAddingMed(false);
+  };
+
+  const removeMed = (id: string) =>
+    set('medications', profile.medications.filter((m) => m.id !== id));
+
+  const addAllergy = () => {
+    if (!newAllergy.trim()) return;
+    set('allergies', [...profile.allergies, newAllergy.trim()]);
+    setNewAllergy('');
+    setAddingAllergy(false);
+  };
+
+  const removeAllergy = (a: string) =>
+    set('allergies', profile.allergies.filter((x) => x !== a));
+
+  const irisContext = buildIrisContext(profile);
+
+  return (
+    <ImageBackground
+      source={require('../../assets/images/login-bg2.png')}
+      style={styles.backgroundImage}
+      imageStyle={styles.backgroundImageStyle}
+      resizeMode="cover"
+      blurRadius={1}
+    >
+      <View style={styles.backgroundTint} />
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* HEADER */}
+        <View style={styles.header}>
+          <Text style={styles.headerLabel}>YOUR DATA</Text>
+          <Text style={styles.headerTitle}>
+            {profile.name ? `${profile.name}'s Profile` : 'Health Profile'}
+          </Text>
+          <View style={styles.irisSync}>
+            <View style={styles.irisSyncDot} />
+            <Text style={styles.irisSyncText}>
+              {onboardingData ? 'Imported from onboarding · Synced to Iris' : 'Synced to Iris'}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── THIS VISIT ── */}
+        <Section label="THIS VISIT">
+          <Text style={styles.fieldLabel}>Chief complaint</Text>
+          <TextInput
+            style={[styles.ghostInput, { minHeight: 72 }]}
+            placeholder="What's your main concern today?"
+            placeholderTextColor={palette.muted}
+            multiline
+            value={profile.chiefComplaint}
+            onChangeText={(v) => set('chiefComplaint', v)}
+          />
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>Doctor / Specialist</Text>
+          <TextInput
+            style={styles.inlineInput}
+            placeholder="e.g. Dr. Reyes"
+            placeholderTextColor={palette.muted}
+            value={profile.doctor}
+            onChangeText={(v) => set('doctor', v)}
+          />
+          <Text style={styles.fieldLabel}>Clinic / Hospital</Text>
+          <TextInput
+            style={styles.inlineInput}
+            placeholder="e.g. Ospital ng Maynila"
+            placeholderTextColor={palette.muted}
+            value={profile.clinic}
+            onChangeText={(v) => set('clinic', v)}
+          />
+          <Text style={styles.fieldLabel}>PhilHealth / HMO</Text>
+          <TextInput
+            style={styles.inlineInput}
+            placeholder="Card number or provider"
+            placeholderTextColor={palette.muted}
+            value={profile.philhealth}
+            onChangeText={(v) => set('philhealth', v)}
+          />
+        </Section>
+
+        {/* ── PERSONAL INFO ── */}
+        <Section label="PERSONAL INFO">
+          <View style={styles.rowFields}>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Age</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. 34"
+                placeholderTextColor={palette.muted}
+                keyboardType="numeric"
+                value={profile.age}
+                onChangeText={(v) => set('age', v)}
+              />
+            </View>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Blood type</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. O+"
+                placeholderTextColor={palette.muted}
+                value={profile.bloodType}
+                onChangeText={(v) => set('bloodType', v)}
+              />
+            </View>
+          </View>
+          <Text style={styles.fieldLabel}>Sex</Text>
+          <View style={styles.chipRow}>
+            {['Male', 'Female'].map((s) => (
+              <Chip
+                key={s}
+                label={s}
+                active={profile.sex === s}
+                onPress={() => set('sex', profile.sex === s ? '' : s)}
+              />
+            ))}
+          </View>
+        </Section>
+
+        {/* ── VITALS ── */}
+        <Section label="VITALS">
+          <View style={styles.rowFields}>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Height</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. 165 cm"
+                placeholderTextColor={palette.muted}
+                value={profile.height}
+                onChangeText={(v) => set('height', v)}
+              />
+            </View>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Weight</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. 68 kg"
+                placeholderTextColor={palette.muted}
+                value={profile.weight}
+                onChangeText={(v) => set('weight', v)}
+              />
+            </View>
+          </View>
+          <View style={styles.rowFields}>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Blood pressure</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. 120/80"
+                placeholderTextColor={palette.muted}
+                value={profile.bloodPressure}
+                onChangeText={(v) => set('bloodPressure', v)}
+              />
+            </View>
+            <View style={styles.fieldHalf}>
+              <Text style={styles.fieldLabel}>Blood sugar</Text>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="e.g. 95 mg/dL"
+                placeholderTextColor={palette.muted}
+                value={profile.bloodSugar}
+                onChangeText={(v) => set('bloodSugar', v)}
+              />
+            </View>
+          </View>
+        </Section>
+
+        {/* ── MEDICATIONS ── */}
+        <Section label="MEDICATIONS">
+          {profile.medications.map((med) => (
+            <View key={med.id} style={styles.listItem}>
+              <View style={styles.listItemLeft}>
+                <Text style={styles.itemTitle}>{med.name}</Text>
+                {!!med.info && <Text style={styles.itemSub}>{med.info}</Text>}
+              </View>
+              <TouchableOpacity onPress={() => removeMed(med.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={16} color={palette.muted} />
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {addingMed ? (
+            <View style={styles.addMedForm}>
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="Medication name"
+                placeholderTextColor={palette.muted}
+                value={newMed.name}
+                onChangeText={(v) => setNewMed((m) => ({ ...m, name: v }))}
+                autoFocus
+              />
+              <TextInput
+                style={styles.inlineInput}
+                placeholder="Dosage & frequency (optional)"
+                placeholderTextColor={palette.muted}
+                value={newMed.info}
+                onChangeText={(v) => setNewMed((m) => ({ ...m, info: v }))}
+              />
+              <View style={styles.addMedActions}>
+                <TouchableOpacity onPress={() => setAddingMed(false)}>
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.addConfirmBtn} onPress={addMed}>
+                  <Text style={styles.addConfirmText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.textButton} onPress={() => setAddingMed(true)}>
+              <Ionicons name="add" size={18} color={palette.terracotta} />
+              <Text style={styles.textButtonText}>Add medication</Text>
+            </TouchableOpacity>
+          )}
+        </Section>
+
+        {/* ── ALLERGIES ── */}
+        <Section label="ALLERGIES">
+          <View style={styles.chipRow}>
+            {profile.allergies.map((a) => (
+              <TouchableOpacity
+                key={a}
+                style={styles.allergyPill}
+                onPress={() => removeAllergy(a)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.allergyPillText}>{a}</Text>
+                <Ionicons name="close" size={12} color={palette.muted} style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
+            ))}
+            {addingAllergy ? (
+              <TextInput
+                style={styles.allergyInput}
+                placeholder="Type and press ↵"
+                placeholderTextColor={palette.muted}
+                value={newAllergy}
+                onChangeText={setNewAllergy}
+                onSubmitEditing={addAllergy}
+                autoFocus
+                returnKeyType="done"
+              />
+            ) : (
+              <TouchableOpacity style={styles.addPill} onPress={() => setAddingAllergy(true)}>
+                <Ionicons name="add" size={16} color={palette.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </Section>
+
+        {/* ── PAST CONDITIONS ── */}
+        <Section label="PAST CONDITIONS">
+          <View style={styles.chipRow}>
+            {CONDITION_OPTIONS.map((c) => (
+              <Chip
+                key={c}
+                label={c}
+                active={profile.conditions.includes(c)}
+                onPress={() => toggleChip('conditions', c)}
+              />
+            ))}
+          </View>
+        </Section>
+
+        {/* ── FAMILY HISTORY ── */}
+        <Section label="FAMILY HISTORY">
+          <Text style={styles.fieldHint}>Select conditions that run in your family.</Text>
+          <View style={styles.chipRow}>
+            {FAMILY_HISTORY_OPTIONS.map((f) => (
+              <Chip
+                key={f}
+                label={f}
+                active={profile.familyHistory.includes(f)}
+                onPress={() => toggleChip('familyHistory', f)}
+              />
+            ))}
+          </View>
+        </Section>
+
+        {/* ── LIFESTYLE ── */}
+        <Section label="LIFESTYLE">
+          <Text style={styles.fieldLabel}>Occupation</Text>
+          <TextInput
+            style={styles.inlineInput}
+            placeholder="e.g. Construction worker, Teacher"
+            placeholderTextColor={palette.muted}
+            value={profile.lifestyle.occupation}
+            onChangeText={(v) => setLifestyle('occupation', v)}
+          />
+          <View style={styles.divider} />
+          <YesNo
+            label="Do you smoke?"
+            value={profile.lifestyle.smoking}
+            onChange={(v) => setLifestyle('smoking', v)}
+          />
+          <YesNo
+            label="Do you drink alcohol?"
+            value={profile.lifestyle.alcohol}
+            onChange={(v) => setLifestyle('alcohol', v)}
+          />
+          <YesNo
+            label="Does your work involve physical labor?"
+            value={profile.lifestyle.physicalLabor}
+            onChange={(v) => setLifestyle('physicalLabor', v)}
+          />
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>Other notes for Iris</Text>
+          <TextInput
+            style={[styles.ghostInput, { minHeight: 60 }]}
+            placeholder="Anything else Iris should know about your daily life..."
+            placeholderTextColor={palette.muted}
+            multiline
+            value={profile.lifestyle.notes}
+            onChangeText={(v) => setLifestyle('notes', v)}
+          />
+        </Section>
+
+        {/* ── RECENT LAB RESULTS ── */}
+        <Section label="RECENT LAB RESULTS">
+          <Text style={styles.fieldHint}>
+            HbA1c, cholesterol, CBC — paste or type values from your last check-up.
+          </Text>
+          <TextInput
+            style={[styles.ghostInput, { minHeight: 80 }]}
+            placeholder="e.g. HbA1c: 6.1%, Total cholesterol: 195 mg/dL"
+            placeholderTextColor={palette.muted}
+            multiline
+            value={profile.labResults}
+            onChangeText={(v) => set('labResults', v)}
+          />
+        </Section>
+
+        {/* ── IRIS CONTEXT PREVIEW ── */}
+        <View style={styles.irisPreviewCard}>
+          <View style={styles.irisPreviewHeader}>
+            <View style={styles.irisSyncDot} />
+            <Text style={styles.irisPreviewTitle}>What Iris knows about you</Text>
+          </View>
+          <Text style={styles.irisPreviewBody} numberOfLines={6}>
+            {irisContext}
+          </Text>
+          <Text style={styles.irisPreviewHint}>
+            This is sent to Iris at the start of every session.
+          </Text>
+        </View>
+
+        {/* CTA */}
+        <TouchableOpacity style={styles.heroButton} activeOpacity={0.85}>
+          <Text style={styles.heroButtonText}>Generate Cheat Sheet</Text>
+          <View style={styles.heroArrow}>
+            <Ionicons name="arrow-forward" size={18} color={palette.terracotta} />
+          </View>
+        </TouchableOpacity>
+
+      </ScrollView>
+    </ImageBackground>
+  );
+}
+
+// ─────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: palette.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
+  backgroundImage: { flex: 1, backgroundColor: palette.bg },
+  backgroundImageStyle: { opacity: 0.42 },
+  backgroundTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(238, 247, 249, 0.54)',
   },
-  title: {
+  container: { flex: 1 },
+  content: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxxl * 1.5,
+    paddingBottom: spacing.xxxl,
+  },
+
+  // Header
+  header: { marginBottom: spacing.xl },
+  headerLabel: {
+    color: palette.muted,
+    fontSize: 11,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: spacing.xs,
+  },
+  headerTitle: {
     color: palette.ink,
-    fontSize: 30,
+    fontSize: 42,
     fontFamily: typography.serif,
+    letterSpacing: -1,
+    marginBottom: spacing.sm,
+  },
+  irisSync: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  irisSyncDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#1F8FAF',
+  },
+  irisSyncText: {
+    color: '#1F8FAF',
+    fontSize: 12,
+    fontFamily: typography.sans,
+    fontWeight: '600',
+  },
+
+  // Section
+  section: { marginBottom: spacing.lg },
+  sectionLabelRow: { marginBottom: spacing.sm },
+  sectionPill: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 100,
+    alignSelf: 'flex-start',
+  },
+  sectionLabel: {
+    color: palette.muted,
+    fontSize: 9,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  card: {
+    backgroundColor: palette.white,
+    borderRadius: 24,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+  },
+
+  // Fields
+  fieldLabel: {
+    color: palette.muted,
+    fontSize: 11,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    marginTop: spacing.sm,
+  },
+  fieldHint: {
+    color: palette.muted,
+    fontSize: 13,
+    fontFamily: typography.sans,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  rowFields: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  fieldHalf: { flex: 1 },
+  inlineInput: {
+    fontFamily: typography.sans,
+    fontSize: 15,
+    color: palette.ink,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    paddingVertical: 8,
+    marginBottom: spacing.xs,
+  },
+  ghostInput: {
+    fontFamily: typography.sans,
+    fontSize: 15,
+    color: palette.ink,
+    textAlignVertical: 'top',
+    paddingTop: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginVertical: spacing.md,
+  },
+
+  // List items (medications)
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.04)',
+  },
+  listItemLeft: { flex: 1 },
+  itemTitle: {
+    fontSize: 16,
+    fontFamily: typography.sans,
+    fontWeight: '600',
+    color: palette.ink,
+  },
+  itemSub: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    color: palette.muted,
+    marginTop: 2,
+  },
+  textButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  textButtonText: {
+    fontSize: 15,
+    fontFamily: typography.sans,
+    fontWeight: '600',
+    color: palette.terracotta,
+    marginLeft: 6,
+  },
+  addMedForm: { gap: 4, marginTop: spacing.sm },
+  addMedActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  cancelText: {
+    color: palette.muted,
+    fontSize: 14,
+    fontFamily: typography.sans,
+  },
+  addConfirmBtn: {
+    backgroundColor: palette.terracotta,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 100,
+  },
+  addConfirmText: {
+    color: palette.white,
+    fontSize: 14,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+  },
+
+  // Chips
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  chip: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  chipActive: {
+    backgroundColor: 'rgba(31, 143, 175, 0.1)',
+    borderColor: 'rgba(31, 143, 175, 0.3)',
+  },
+  chipText: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    color: palette.muted,
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: '#1F8FAF',
+    fontWeight: '700',
+  },
+
+  // Allergies
+  allergyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 100,
+  },
+  allergyPillText: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    color: palette.ink,
+    fontWeight: '500',
+  },
+  allergyInput: {
+    fontSize: 14,
+    fontFamily: typography.sans,
+    color: palette.ink,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.muted,
+    minWidth: 120,
+    paddingVertical: 4,
+  },
+  addPill: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: palette.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Yes/No
+  yesNoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+  },
+  yesNoLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: typography.sans,
+    color: palette.ink,
+    paddingRight: spacing.md,
+  },
+  yesNoButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  yesNoBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 100,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  yesNoBtnActive: {
+    backgroundColor: 'rgba(31, 143, 175, 0.1)',
+    borderColor: 'rgba(31, 143, 175, 0.3)',
+  },
+  yesNoBtnText: {
+    fontSize: 13,
+    fontFamily: typography.sans,
+    color: palette.muted,
+    fontWeight: '600',
+  },
+  yesNoBtnTextActive: {
+    color: '#1F8FAF',
+  },
+
+  // Iris context preview
+  irisPreviewCard: {
+    backgroundColor: 'rgba(31, 143, 175, 0.05)',
+    borderRadius: 24,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(31, 143, 175, 0.12)',
+    marginBottom: spacing.lg,
+  },
+  irisPreviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  irisPreviewTitle: {
+    color: '#1F8FAF',
+    fontSize: 13,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  irisPreviewBody: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: palette.muted,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
+  },
+  irisPreviewHint: {
+    fontFamily: typography.sans,
+    fontSize: 11,
+    color: 'rgba(31, 143, 175, 0.6)',
+    fontStyle: 'italic',
+  },
+
+  // CTA
+  heroButton: {
+    backgroundColor: palette.terracotta,
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: spacing.xl,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: palette.terracotta,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  heroButtonText: {
+    color: palette.white,
+    fontSize: 18,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+  },
+  heroArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: palette.white,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
