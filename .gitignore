@@ -2,6 +2,14 @@
 #
 .DS_Store
 
+# Firebase / Google Services
+android/app/google-services.json
+ios/GoogleService-Info.plist
+
+# Environment secrets
+.env
+*.keystore
+
 # Xcode
 #
 build/
