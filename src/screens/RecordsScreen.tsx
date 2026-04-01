@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,20 +9,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import {
+  loadLocalMedicalRecords,
+  saveLocalMedicalRecords,
+  syncMedicalRecordsForCurrentUser,
+  syncPendingMedicalRecordsToCloud,
+} from '../services/recordsRepository';
+import { MedicineRecord } from '../types/records';
 import { palette, spacing, typography } from '../tokens';
-
-// --- TYPES ---
-interface Medicine {
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-}
-
-interface Allergy {
-  id: string;
-  name: string;
-}
 
 // --- SECTION HEADER ---
 function SectionHeader({ title }: { title: string }) {
@@ -34,7 +28,7 @@ function MedicineCard({
   medicine,
   onRemove,
 }: {
-  medicine: Medicine;
+  medicine: MedicineRecord;
   onRemove: (id: string) => void;
 }) {
   return (
@@ -57,25 +51,27 @@ function AllergyChip({
   allergy,
   onRemove,
 }: {
-  allergy: Allergy;
-  onRemove: (id: string) => void;
+  allergy: string;
+  onRemove: (value: string) => void;
 }) {
   return (
     <TouchableOpacity
       style={styles.chip}
-      onPress={() => onRemove(allergy.id)}
+      onPress={() => onRemove(allergy)}
       activeOpacity={0.7}
     >
-      <Text style={styles.chipText}>{allergy.name}</Text>
+      <Text style={styles.chipText}>{allergy}</Text>
       <Text style={styles.chipRemove}>×</Text>
     </TouchableOpacity>
   );
 }
 
 // --- MAIN SCREEN ---
-export function RecordScreen() {
-  const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [allergies, setAllergies] = useState<Allergy[]>([]);
+export function RecordsScreen() {
+  const [medicines, setMedicines] = useState<MedicineRecord[]>([]);
+  const [allergies, setAllergies] = useState<string[]>([]);
+  const [conditionsNote, setConditionsNote] = useState('');
+  const hydratedRef = useRef(false);
 
   // Medicine form state
   const [medName, setMedName] = useState('');
@@ -84,6 +80,54 @@ export function RecordScreen() {
 
   // Allergy form state
   const [allergyName, setAllergyName] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrate = async () => {
+      try {
+        const local = await loadLocalMedicalRecords();
+        if (mounted && local) {
+          setMedicines(local.medicines);
+          setAllergies(local.allergies);
+          setConditionsNote(local.conditionsNote);
+        }
+      } finally {
+        if (mounted) {
+          hydratedRef.current = true;
+        }
+      }
+
+      syncMedicalRecordsForCurrentUser().catch(() => {
+        // Keep UI responsive even if cloud sync is unavailable.
+      });
+    };
+
+    hydrate();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydratedRef.current) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      saveLocalMedicalRecords({
+        medicines,
+        allergies,
+        conditionsNote,
+      })
+        .then(() => syncPendingMedicalRecordsToCloud())
+        .catch(() => {
+          // Changes remain local and can be retried later.
+        });
+    }, 450);
+
+    return () => clearTimeout(timeout);
+  }, [medicines, allergies, conditionsNote]);
 
   const addMedicine = () => {
     if (!medName.trim()) return;
@@ -106,16 +150,14 @@ export function RecordScreen() {
   };
 
   const addAllergy = () => {
-    if (!allergyName.trim()) return;
-    setAllergies(prev => [
-      ...prev,
-      { id: Date.now().toString(), name: allergyName.trim() },
-    ]);
+    const normalized = allergyName.trim();
+    if (!normalized) return;
+    setAllergies(prev => (prev.includes(normalized) ? prev : [...prev, normalized]));
     setAllergyName('');
   };
 
-  const removeAllergy = (id: string) => {
-    setAllergies(prev => prev.filter(a => a.id !== id));
+  const removeAllergy = (value: string) => {
+    setAllergies(prev => prev.filter(a => a !== value));
   };
 
   return (
@@ -181,7 +223,7 @@ export function RecordScreen() {
         {allergies.length > 0 && (
           <View style={styles.chipRow}>
             {allergies.map(allergy => (
-              <AllergyChip key={allergy.id} allergy={allergy} onRemove={removeAllergy} />
+              <AllergyChip key={allergy} allergy={allergy} onRemove={removeAllergy} />
             ))}
           </View>
         )}
@@ -212,6 +254,8 @@ export function RecordScreen() {
             style={[styles.input, styles.textArea]}
             placeholder="e.g. Hypertension diagnosed 2019, Appendectomy 2021"
             placeholderTextColor={palette.muted}
+            value={conditionsNote}
+            onChangeText={setConditionsNote}
             multiline
             numberOfLines={4}
             textAlignVertical="top"

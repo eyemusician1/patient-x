@@ -8,12 +8,53 @@ import {
   ImageBackground,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import { loadMostRecentLocalInterviewSession } from '../services/interviewRepository';
 import { palette, spacing, typography } from '../tokens';
 
 export function HomeScreen({ navigation }: any) {
-  // Grab the user and extract their first name for a personalized greeting
   const user = auth().currentUser;
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'Guest';
+
+  const [recentConversation, setRecentConversation] = React.useState<{
+    preview: string;
+    count: number;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const hydrateRecentConversation = async () => {
+      const latest = await loadMostRecentLocalInterviewSession();
+      if (!mounted || !latest) {
+        if (mounted) setRecentConversation(null);
+        return;
+      }
+
+      const lastUserMessage = [...latest.messages]
+        .reverse()
+        .find((m) => m.role === 'user');
+
+      setRecentConversation({
+        preview: lastUserMessage?.text ?? 'Recent chat',
+        count: latest.messages.length,
+      });
+    };
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      hydrateRecentConversation().catch(() => {
+        if (mounted) setRecentConversation(null);
+      });
+    });
+
+    hydrateRecentConversation().catch(() => {
+      if (mounted) setRecentConversation(null);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [navigation]);
 
   const currentDate = new Date()
     .toLocaleDateString('en-US', {
@@ -37,13 +78,11 @@ export function HomeScreen({ navigation }: any) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.dateLabel}>{currentDate}</Text>
           <Text style={styles.greeting}>Hello, {firstName}.</Text>
         </View>
 
-        {/* HERO CARD */}
         <TouchableOpacity
           style={styles.heroCard}
           activeOpacity={0.9}
@@ -51,7 +90,7 @@ export function HomeScreen({ navigation }: any) {
         >
           <View style={styles.heroCardTop}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>NEW SESSION</Text>
+              <Text style={styles.badgeText}>CLINIC PREP</Text>
             </View>
             <View style={styles.heroArrow}>
               <Text style={styles.heroArrowText}>↗</Text>
@@ -59,64 +98,40 @@ export function HomeScreen({ navigation }: any) {
           </View>
           <Text style={styles.heroTitle}>Prepare for your clinic visit</Text>
           <Text style={styles.heroSub}>
-            Organize thoughts and symptoms before you see the doctor.
+            Plan symptoms, meds, and key questions.
           </Text>
         </TouchableOpacity>
 
-        {/* BENTO GRID */}
-        <View style={styles.bentoGrid}>
-
-          {/* ASSISTANT INTRO CARD — static, not clickable */}
-          <View style={[styles.bentoCard, styles.irisCard]}>
-            <View style={styles.irisBadge}>
-              <Text style={styles.irisLabel}>ASSISTANT</Text>
-            </View>
-            <Text style={styles.irisTitle}>Meet Iris.</Text>
-            <Text style={styles.irisSub}>
-              Iris listens to your symptoms, helps you recall what to tell your doctor, and turns confusing medical language into plain words — so you always walk in prepared and walk out informed.
-            </Text>
+        <View style={styles.bentoLayout}>
+          <View style={[styles.bentoCard, styles.irisCard, styles.assistantCard]}>
+            <Text style={styles.irisEyebrow}>ASSISTANT</Text>
+            <Text style={styles.irisTitle}>Iris</Text>
+            <Text style={styles.irisSub}>Your AI guide for symptom prep.</Text>
           </View>
 
-          {/* ALIGNED NAVIGATION ROW */}
-          <View style={styles.bentoRow}>
+          <View style={styles.rightColumn}>
             <TouchableOpacity
-              style={[styles.bentoCard, styles.halfWidth]}
-              onPress={() => navigation.navigate('Profile')}
-              activeOpacity={0.8}
+              style={[styles.bentoCard, styles.stackCard]}
+              onPress={() => navigation.navigate('Conversation')}
+              activeOpacity={0.85}
             >
-              <View style={styles.navBadge}>
-                <Text style={styles.navLabel}>RECORDS</Text>
-              </View>
-              <View>
-                <Text style={styles.cardTitle}>Medical Library</Text>
-                <Text style={styles.cardSub}>3 saved</Text>
-              </View>
+              <Text style={styles.cardEyebrow}>CONVERSATION</Text>
+              <Text style={styles.cardTitle}>Recent chats</Text>
+              <Text style={styles.cardMeta}>
+                {recentConversation ? `${recentConversation.count} msgs` : 'Start chat'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.bentoCard, styles.halfWidth]}
+              style={[styles.bentoCard, styles.stackCard]}
               onPress={() => navigation.navigate('Profile')}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <View style={styles.navBadge}>
-                <Text style={styles.navLabel}>ACCOUNT</Text>
-              </View>
-              <View>
-                <Text style={styles.cardTitle}>Health Profile</Text>
-                <Text style={styles.cardSub}>Update vitals</Text>
-              </View>
+              <Text style={styles.cardEyebrow}>HEALTH</Text>
+              <Text style={styles.cardTitle}>Profile</Text>
+              <Text style={styles.cardMeta}>Vitals</Text>
             </TouchableOpacity>
           </View>
-
-          {/* STATUS CARD */}
-          <View style={[styles.bentoCard, styles.statusCard]}>
-            <View style={styles.navBadge}>
-              <Text style={styles.navLabel}>SYSTEM STATUS</Text>
-            </View>
-            <Text style={styles.statusTitle}>All systems ready.</Text>
-            <Text style={styles.statusSub}>Data is encrypted and synced locally.</Text>
-          </View>
-
         </View>
       </ScrollView>
     </ImageBackground>
@@ -135,6 +150,7 @@ const styles = StyleSheet.create({
   },
   container: { flex: 1 },
   content: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xxxl * 1.5,
     paddingBottom: spacing.xxxl,
@@ -150,14 +166,17 @@ const styles = StyleSheet.create({
   },
   greeting: {
     color: palette.ink,
-    fontSize: 42,
-    fontFamily: typography.serif,
-    letterSpacing: -1,
+    fontSize: 40,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   heroCard: {
     backgroundColor: palette.terracotta,
     borderRadius: 28,
     padding: spacing.xl,
+    minHeight: 280,
+    justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
   heroCardTop: {
@@ -167,24 +186,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   badge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 100,
-    alignSelf: 'flex-start',
-  },
-  heroArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroArrowText: {
-    color: palette.white,
-    fontSize: 16,
-    lineHeight: 20,
   },
   badgeText: {
     color: palette.white,
@@ -193,109 +198,101 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
   },
+  heroArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroArrowText: {
+    color: palette.white,
+    fontSize: 16,
+    lineHeight: 20,
+  },
   heroTitle: {
     color: palette.white,
-    fontSize: 28,
-    fontFamily: typography.serif,
-    lineHeight: 34,
+    fontSize: 34,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    lineHeight: 40,
     marginBottom: spacing.sm,
   },
   heroSub: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
     fontFamily: typography.sans,
     lineHeight: 20,
   },
-  bentoGrid: { gap: spacing.md },
-  bentoRow: {
+  bentoLayout: {
     flexDirection: 'row',
-    gap: spacing.md,
     alignItems: 'stretch',
+    gap: spacing.sm,
+    minHeight: 340,
+    flex: 1,
   },
   bentoCard: {
     backgroundColor: palette.white,
-    borderRadius: 24,
-    padding: spacing.xl,
+    borderRadius: 22,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0)',
+    borderColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'space-between',
   },
-  halfWidth: {
+  assistantCard: {
+    flex: 1.05,
+    minHeight: 340,
+  },
+  rightColumn: {
     flex: 1,
+    gap: spacing.sm,
+  },
+  stackCard: {
+    flex: 1,
+    minHeight: 145,
   },
   irisCard: {
-    backgroundColor: 'rgba(31, 143, 175, 0.05)',
-    borderColor: 'rgba(31, 143, 175, 0.10)',
+    backgroundColor: 'rgba(31,143,175,0.06)',
+    borderColor: 'rgba(31,143,175,0.12)',
   },
-  irisBadge: {
-    backgroundColor: 'rgba(31, 143, 175, 0.12)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 100,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.lg,
-  },
-  irisLabel: {
+  irisEyebrow: {
     color: '#1F8FAF',
     fontSize: 9,
     fontFamily: typography.sans,
-    fontWeight: '800',
     letterSpacing: 1.5,
+    marginBottom: spacing.xs,
   },
   irisTitle: {
     color: palette.ink,
-    fontSize: 20,
-    fontFamily: typography.serif,
-    marginBottom: spacing.sm,
+    fontSize: 32,
+    fontFamily: typography.sans,
+    letterSpacing: -0.2,
   },
   irisSub: {
     color: palette.muted,
     fontSize: 13,
     fontFamily: typography.sans,
     lineHeight: 18,
+    marginTop: spacing.xs,
   },
-  navBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 100,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.lg,
-  },
-  navLabel: {
+  cardEyebrow: {
     color: palette.muted,
     fontSize: 9,
     fontFamily: typography.sans,
-    fontWeight: '700',
     letterSpacing: 1.2,
+    marginBottom: spacing.sm,
   },
   cardTitle: {
     color: palette.ink,
-    fontSize: 17,
-    fontFamily: typography.serif,
-    lineHeight: 21,
-  },
-  cardSub: {
-    color: palette.muted,
-    fontSize: 12,
+    fontSize: 22,
     fontFamily: typography.sans,
-    marginTop: 2,
+    lineHeight: 26,
   },
-  statusCard: {},
-  statusHeader: {},
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#34A853',
-  },
-  statusTitle: {
-    color: palette.ink,
-    fontSize: 16,
-    fontFamily: typography.serif,
-  },
-  statusSub: {
+  cardMeta: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: typography.sans,
+    marginTop: spacing.xs,
   },
 });

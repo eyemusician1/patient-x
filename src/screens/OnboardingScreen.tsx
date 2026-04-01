@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Alert,
   ScrollView,
   TouchableOpacity,
   TextInput,
@@ -16,6 +17,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { palette, spacing, typography } from '../tokens';
 import { Medication, UserProfile } from '../types/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ONBOARDING_STORAGE_KEY, saveUserProfile } from '../services/profileStorage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -331,6 +333,7 @@ function StepMeds({ profile, set }: { profile: OnboardingProfile; set: (k: keyof
 // ─────────────────────────────────────────────
 export function OnboardingScreen({ navigation }: any) {
   const [step, setStep] = useState(0);
+  const [saving, setSaving] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [profile, setProfile] = useState<OnboardingProfile>({
@@ -388,8 +391,9 @@ export function OnboardingScreen({ navigation }: any) {
   };
 
   const handleSave = async () => {
-    // Set flag in AsyncStorage so the user skips this next time
-    await AsyncStorage.setItem('hasOnboarded', 'true');
+    if (saving) {
+      return;
+    }
 
     const userProfile: UserProfile = {
       name: profile.name,
@@ -417,7 +421,20 @@ export function OnboardingScreen({ navigation }: any) {
       },
       labResults: '',
     };
-    navigation.replace('MainTabs', { onboardingProfile: userProfile });
+
+    try {
+      setSaving(true);
+      await saveUserProfile(userProfile);
+      await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+      navigation.replace('MainTabs');
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Failed to save onboarding profile', error instanceof Error ? error.message : String(error));
+      }
+      Alert.alert('Unable to save profile', 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const current = STEPS[step];
@@ -470,7 +487,7 @@ export function OnboardingScreen({ navigation }: any) {
             ))}
           </View>
 
-          <TouchableOpacity onPress={handleSave} activeOpacity={0.7}>
+          <TouchableOpacity onPress={handleSave} activeOpacity={0.7} disabled={saving}>
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         </View>
@@ -502,9 +519,9 @@ export function OnboardingScreen({ navigation }: any) {
 
         <View style={styles.bottomBar}>
           <Text style={styles.stepCounter}>{step + 1} of {STEPS.length}</Text>
-          <TouchableOpacity style={styles.nextBtn} onPress={goNext} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.nextBtn} onPress={goNext} activeOpacity={0.85} disabled={saving}>
             <Text style={styles.nextBtnText}>
-              {isLast ? 'Save & continue' : 'Next'}
+              {isLast ? (saving ? 'Saving...' : 'Save & continue') : 'Next'}
             </Text>
             <View style={styles.nextArrow}>
               <Ionicons

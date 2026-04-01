@@ -77,3 +77,46 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+# AI Model Setup (Backend Proxy + Offline Fallback)
+
+The interview flow uses a pluggable provider chain:
+
+1. Primary provider: your backend AI endpoint
+2. Fallback provider: local template responses (works offline)
+
+Configure backend AI routing:
+
+1. Open `src/config/ai.ts`.
+2. Set `backendBaseUrl` (for example: `https://api.yourdomain.com`).
+3. Keep `backendInterviewPath` as `/ai/interview-reply` (or match your backend route).
+
+Expected backend response payload:
+
+```json
+{
+   "text": "Assistant reply text"
+}
+```
+
+The app sends the interview payload to your backend and includes Firebase ID token authorization when available.
+If backend config is blank or the request fails, the app automatically falls back to local template prompts so interview mode remains available offline.
+
+## Gemini Free-Tier Routing Policy
+
+The app now sends a preferred model policy in each interview request payload:
+
+- primary: gemini-3.1-flash-lite
+- fallback: gemini-2.5-flash-lite
+- escalation: gemini-2.5-flash
+- maxRetries: 1
+
+Your backend should respect this order and retry policy. A ready-to-use server example is included in:
+
+- docs/backend-gemini-routing-example.md
+
+For production deployments (Redis-backed rate limiting + Firestore audit logs), use:
+
+- docs/backend-gemini-production-example.md
+
+Important: keep Gemini API keys only on backend environment variables.

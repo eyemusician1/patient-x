@@ -1,24 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import auth from '@react-native-firebase/auth';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { palette } from '../tokens';
+import { ONBOARDING_STORAGE_KEY } from '../services/profileStorage';
 
 // Screens
 import { HomeScreen }       from '../screens/HomeScreen';
 import { InterviewScreen }  from '../screens/InterviewScreen';
 import { ProfileScreen }    from '../screens/ProfileScreen';
+import { RecordsScreen }    from '../screens/RecordsScreen';
+import { ConversationScreen } from '../screens/ConversationScreen';
+import { AdvancedHealthDetailsScreen } from '../screens/AdvancedHealthDetailsScreen';
 import { WelcomeScreen }    from '../screens/WelcomeScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MainTabs({ route }: any) {
-  const onboardingProfile = route?.params?.onboardingProfile;
-
+function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({route: tabRoute}) => ({
@@ -47,39 +49,52 @@ function MainTabs({ route }: any) {
       })}>
       <Tab.Screen name="Home"      component={HomeScreen} />
       <Tab.Screen name="Interview" component={InterviewScreen} />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        initialParams={{ onboardingProfile }}
-      />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
-export function AppNavigator() {
+interface AppNavigatorProps {
+  user: FirebaseAuthTypes.User | null;
+}
+
+export function AppNavigator({ user }: AppNavigatorProps) {
   const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'MainTabs'>('Onboarding');
 
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged(async (currentUser) => {
-      setUser(currentUser);
+    let mounted = true;
 
-      if (currentUser) {
-        // Check if the user has already completed onboarding
-        const hasOnboarded = await AsyncStorage.getItem('hasOnboarded');
-        if (hasOnboarded === 'true') {
-          setInitialRoute('MainTabs');
-        } else {
+    const hydrateRoute = async () => {
+      if (!user) {
+        if (mounted) {
           setInitialRoute('Onboarding');
+          setInitializing(false);
         }
+        return;
       }
 
-      if (initializing) setInitializing(false);
-    });
+      try {
+        const hasOnboarded = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (mounted) {
+          setInitialRoute(hasOnboarded === 'true' ? 'MainTabs' : 'Onboarding');
+          setInitializing(false);
+        }
+      } catch {
+        if (mounted) {
+          setInitialRoute('Onboarding');
+          setInitializing(false);
+        }
+      }
+    };
 
-    return subscriber; // Unsubscribe on unmount
-  }, [initializing]);
+    setInitializing(true);
+    hydrateRoute();
+
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
 
   if (initializing) return null;
 
@@ -92,11 +107,17 @@ export function AppNavigator() {
             <>
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
               <Stack.Screen name="MainTabs"   component={MainTabs} />
+              <Stack.Screen name="Records"    component={RecordsScreen} />
+              <Stack.Screen name="Conversation" component={ConversationScreen} />
+              <Stack.Screen name="AdvancedHealthDetails" component={AdvancedHealthDetailsScreen} />
             </>
           ) : (
             <>
               <Stack.Screen name="MainTabs"   component={MainTabs} />
               <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="Records"    component={RecordsScreen} />
+              <Stack.Screen name="Conversation" component={ConversationScreen} />
+              <Stack.Screen name="AdvancedHealthDetails" component={AdvancedHealthDetailsScreen} />
             </>
           )}
         </Stack.Group>

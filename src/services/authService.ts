@@ -7,6 +7,15 @@ GoogleSignin.configure({
   webClientId: '855843046641-dv7li6mu0u5c12s40g39e0t2mmk07jcs.apps.googleusercontent.com',
 });
 
+function logAuthError(message: string, error: unknown) {
+  if (!__DEV__) {
+    return;
+  }
+
+  const safeMessage = error instanceof Error ? error.message : String(error);
+  console.error(message, safeMessage);
+}
+
 export const AuthService = {
   signInWithGoogle: async () => {
     try {
@@ -28,7 +37,7 @@ export const AuthService = {
       return await auth().signInWithCredential(googleCredential);
 
     } catch (error) {
-      console.error("Google Sign-In failed", error);
+      logAuthError('Google Sign-In failed', error);
       throw error;
     }
   },
@@ -42,7 +51,7 @@ export const AuthService = {
         GoogleSignin.signOut(),
       ]);
     } catch (error) {
-      console.error("Sign out failed", error);
+      logAuthError('Sign out failed', error);
       throw error;
     }
   }

@@ -6,6 +6,7 @@ import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ActivityIndicator, View } from 'react-native';
 import { palette } from './src/tokens';
+import { syncAllUserData } from './src/services/syncService';
 
 export default function App() {
   const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
@@ -18,6 +19,18 @@ export default function App() {
     });
     return unsubscribe; // cleanup on unmount
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    syncAllUserData().catch((error) => {
+      if (__DEV__) {
+        console.error('Startup sync failed', error instanceof Error ? error.message : String(error));
+      }
+    });
+  }, [user]);
 
   // Show spinner while Firebase checks existing session
   if (initializing) {

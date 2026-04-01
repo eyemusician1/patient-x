@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ImageBackground, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, ImageBackground, ActivityIndicator, Alert } from 'react-native';
 import { palette, typography } from '../tokens';
 import { AuthService } from '../services/authService';
 
@@ -12,7 +12,10 @@ export function WelcomeScreen() {
       await AuthService.signInWithGoogle();
       // Notice: No navigation call here! AppNavigator handles the swap.
     } catch (error) {
-      console.log('Login cancelled or failed:', error);
+      if (__DEV__) {
+        console.error('Login failed', error instanceof Error ? error.message : String(error));
+      }
+      Alert.alert('Sign-in failed', 'Please try again.');
       setLoading(false);
     }
   };

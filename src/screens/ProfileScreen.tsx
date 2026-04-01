@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,31 +8,18 @@ import {
   TextInput,
   ImageBackground,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import { palette, spacing, typography } from '../tokens';
 import {
   UserProfile,
-  Medication,
-  Lifestyle,
   DEFAULT_PROFILE,
-  buildIrisContext,
 } from '../types/profile';
+import { loadUserProfile, saveUserProfile } from '../services/profileStorage';
 
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
-
-const FAMILY_HISTORY_OPTIONS = [
-  'Diabetes', 'Hypertension', 'Heart disease',
-  'Cancer', 'Asthma', 'Kidney disease', 'Stroke',
-];
-
-const CONDITION_OPTIONS = [
-  'Hypertension', 'Diabetes', 'Asthma', 'Arthritis',
-  'Tuberculosis', 'Heart disease', 'Thyroid disorder',
-];
 
 // ─────────────────────────────────────────────
 // SECTION WRAPPER
@@ -68,35 +55,6 @@ function Chip({
 }
 
 // ─────────────────────────────────────────────
-// YES/NO TOGGLE
-// ─────────────────────────────────────────────
-function YesNo({
-  label, value, onChange,
-}: { label: string; value: boolean | null; onChange: (v: boolean) => void }) {
-  return (
-    <View style={styles.yesNoRow}>
-      <Text style={styles.yesNoLabel}>{label}</Text>
-      <View style={styles.yesNoButtons}>
-        <TouchableOpacity
-          style={[styles.yesNoBtn, value === true && styles.yesNoBtnActive]}
-          onPress={() => onChange(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.yesNoBtnText, value === true && styles.yesNoBtnTextActive]}>Yes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.yesNoBtn, value === false && styles.yesNoBtnActive]}
-          onPress={() => onChange(false)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.yesNoBtnText, value === false && styles.yesNoBtnTextActive]}>No</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-}
-
-// ─────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────
 export function ProfileScreen({ route, navigation }: any) {
@@ -105,6 +63,7 @@ export function ProfileScreen({ route, navigation }: any) {
   const [profile, setProfile] = useState<UserProfile>(
     onboardingData ?? DEFAULT_PROFILE
   );
+  const [hydrated, setHydrated] = useState(false);
 
   const [newMed, setNewMed] = useState({ name: '', info: '' });
   const [addingMed, setAddingMed] = useState(false);
@@ -113,9 +72,6 @@ export function ProfileScreen({ route, navigation }: any) {
 
   const set = (key: keyof UserProfile, value: any) =>
     setProfile((p) => ({ ...p, [key]: value }));
-
-  const setLifestyle = (key: keyof Lifestyle, value: any) =>
-    setProfile((p) => ({ ...p, lifestyle: { ...p.lifestyle, [key]: value } }));
 
   const toggleChip = (list: keyof UserProfile, item: string) => {
     const arr = profile[list] as string[];
@@ -145,14 +101,57 @@ export function ProfileScreen({ route, navigation }: any) {
   const removeAllergy = (a: string) =>
     set('allergies', profile.allergies.filter((x) => x !== a));
 
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrateProfile = async () => {
+      try {
+        const stored = await loadUserProfile();
+        if (mounted) {
+          setProfile(onboardingData ?? stored);
+        }
+      } catch {
+        if (mounted) {
+          setProfile(onboardingData ?? DEFAULT_PROFILE);
+        }
+      } finally {
+        if (mounted) {
+          setHydrated(true);
+        }
+      }
+    };
+
+    hydrateProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [onboardingData]);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      saveUserProfile(profile).catch((error) => {
+        if (__DEV__) {
+          console.error('Failed to persist profile', error instanceof Error ? error.message : String(error));
+        }
+      });
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [profile, hydrated]);
+
   const handleLogout = async () => {
     try {
-      // Clear onboarding flag if you want them to restart on next login
-      await AsyncStorage.removeItem('hasOnboarded');
       // Sign out via Firebase instead of a manual navigation.replace
       await auth().signOut();
     } catch (error) {
-      console.error("Logout failed:", error);
+      if (__DEV__) {
+        console.error('Logout failed', error instanceof Error ? error.message : String(error));
+      }
     }
   };
 
@@ -218,8 +217,9 @@ export function ProfileScreen({ route, navigation }: any) {
           />
         </Section>
 
-        {/* ── PERSONAL INFO ── */}
-        <Section label="PERSONAL INFO">
+        {/* ── USER DATA (ESSENTIAL) ── */}
+        <Section label="USER DATA">
+          <Text style={styles.fieldHint}>Only essential personal details are shown here.</Text>
           <View style={styles.rowFields}>
             <View style={styles.fieldHalf}>
               <Text style={styles.fieldLabel}>Age</Text>
@@ -254,10 +254,6 @@ export function ProfileScreen({ route, navigation }: any) {
               />
             ))}
           </View>
-        </Section>
-
-        {/* ── VITALS ── */}
-        <Section label="VITALS">
           <View style={styles.rowFields}>
             <View style={styles.fieldHalf}>
               <Text style={styles.fieldLabel}>Height</Text>
@@ -302,6 +298,20 @@ export function ProfileScreen({ route, navigation }: any) {
               />
             </View>
           </View>
+        </Section>
+
+        <Section label="MORE DETAILS">
+          <Text style={styles.fieldHint}>
+            Need to add history and lifestyle details? Edit them in Advanced Health Details.
+          </Text>
+          <TouchableOpacity
+            style={styles.advancedDetailsButton}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('AdvancedHealthDetails')}
+          >
+            <Text style={styles.advancedDetailsButtonText}>Open Advanced Health Details</Text>
+            <Ionicons name="arrow-forward" size={16} color={palette.white} />
+          </TouchableOpacity>
         </Section>
 
         {/* ── MEDICATIONS ── */}
@@ -385,73 +395,6 @@ export function ProfileScreen({ route, navigation }: any) {
           </View>
         </Section>
 
-        {/* ── PAST CONDITIONS ── */}
-        <Section label="PAST CONDITIONS">
-          <View style={styles.chipRow}>
-            {CONDITION_OPTIONS.map((c) => (
-              <Chip
-                key={c}
-                label={c}
-                active={profile.conditions.includes(c)}
-                onPress={() => toggleChip('conditions', c)}
-              />
-            ))}
-          </View>
-        </Section>
-
-        {/* ── FAMILY HISTORY ── */}
-        <Section label="FAMILY HISTORY">
-          <Text style={styles.fieldHint}>Select conditions that run in your family.</Text>
-          <View style={styles.chipRow}>
-            {FAMILY_HISTORY_OPTIONS.map((f) => (
-              <Chip
-                key={f}
-                label={f}
-                active={profile.familyHistory.includes(f)}
-                onPress={() => toggleChip('familyHistory', f)}
-              />
-            ))}
-          </View>
-        </Section>
-
-        {/* ── LIFESTYLE ── */}
-        <Section label="LIFESTYLE">
-          <Text style={styles.fieldLabel}>Occupation</Text>
-          <TextInput
-            style={styles.inlineInput}
-            placeholder="e.g. Construction worker, Teacher"
-            placeholderTextColor={palette.muted}
-            value={profile.lifestyle.occupation}
-            onChangeText={(v) => setLifestyle('occupation', v)}
-          />
-          <View style={styles.divider} />
-          <YesNo
-            label="Do you smoke?"
-            value={profile.lifestyle.smoking}
-            onChange={(v) => setLifestyle('smoking', v)}
-          />
-          <YesNo
-            label="Do you drink alcohol?"
-            value={profile.lifestyle.alcohol}
-            onChange={(v) => setLifestyle('alcohol', v)}
-          />
-          <YesNo
-            label="Does your work involve physical labor?"
-            value={profile.lifestyle.physicalLabor}
-            onChange={(v) => setLifestyle('physicalLabor', v)}
-          />
-          <View style={styles.divider} />
-          <Text style={styles.fieldLabel}>Other notes for Iris</Text>
-          <TextInput
-            style={[styles.ghostInput, { minHeight: 60 }]}
-            placeholder="Anything else Iris should know about your daily life..."
-            placeholderTextColor={palette.muted}
-            multiline
-            value={profile.lifestyle.notes}
-            onChangeText={(v) => setLifestyle('notes', v)}
-          />
-        </Section>
-
         {/* LOGOUT */}
         <TouchableOpacity
           style={styles.logoutButton}
@@ -485,7 +428,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.xl },
   headerLabel: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -493,7 +436,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: palette.ink,
-    fontSize: 42,
+    fontSize: 44,
     fontFamily: typography.serif,
     letterSpacing: -1,
     marginBottom: spacing.sm,
@@ -526,7 +469,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: palette.muted,
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -540,7 +483,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -549,7 +492,7 @@ const styles = StyleSheet.create({
   },
   fieldHint: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     lineHeight: 18,
     marginBottom: spacing.md,
@@ -561,7 +504,7 @@ const styles = StyleSheet.create({
   fieldHalf: { flex: 1 },
   inlineInput: {
     fontFamily: typography.sans,
-    fontSize: 15,
+    fontSize: 16,
     color: palette.ink,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.08)',
@@ -570,7 +513,7 @@ const styles = StyleSheet.create({
   },
   ghostInput: {
     fontFamily: typography.sans,
-    fontSize: 15,
+    fontSize: 16,
     color: palette.ink,
     textAlignVertical: 'top',
     paddingTop: 4,
@@ -590,13 +533,13 @@ const styles = StyleSheet.create({
   },
   listItemLeft: { flex: 1 },
   itemTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: typography.sans,
     fontWeight: '600',
     color: palette.ink,
   },
   itemSub: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     color: palette.muted,
     marginTop: 2,
@@ -607,7 +550,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   textButtonText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: typography.sans,
     fontWeight: '600',
     color: palette.terracotta,
@@ -623,7 +566,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: typography.sans,
   },
   addConfirmBtn: {
@@ -634,7 +577,7 @@ const styles = StyleSheet.create({
   },
   addConfirmText: {
     color: palette.white,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: typography.sans,
     fontWeight: '700',
   },
@@ -657,7 +600,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(31, 143, 175, 0.3)',
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     color: palette.muted,
     fontWeight: '500',
@@ -675,13 +618,13 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   allergyPillText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     color: palette.ink,
     fontWeight: '500',
   },
   allergyInput: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: typography.sans,
     color: palette.ink,
     borderBottomWidth: 1,
@@ -753,21 +696,21 @@ const styles = StyleSheet.create({
   },
   irisPreviewTitle: {
     color: '#1F8FAF',
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   irisPreviewBody: {
     fontFamily: typography.sans,
-    fontSize: 12,
+    fontSize: 13,
     color: palette.muted,
     lineHeight: 18,
     marginBottom: spacing.sm,
   },
   irisPreviewHint: {
     fontFamily: typography.sans,
-    fontSize: 11,
+    fontSize: 12,
     color: 'rgba(31, 143, 175, 0.6)',
     fontStyle: 'italic',
   },
@@ -785,8 +728,24 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: palette.muted,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: typography.sans,
     fontWeight: '600',
+  },
+  advancedDetailsButton: {
+    marginTop: spacing.xs,
+    backgroundColor: '#1F8FAF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  advancedDetailsButtonText: {
+    color: palette.white,
+    fontSize: 15,
+    fontFamily: typography.sans,
+    fontWeight: '700',
   },
 });
