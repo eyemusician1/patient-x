@@ -10,6 +10,14 @@ import {
 const PROFILE_STORAGE_KEY = 'userProfile';
 export const ONBOARDING_STORAGE_KEY = 'hasOnboarded';
 
+export function getOnboardingStorageKey(userId: string | null | undefined): string {
+  if (!userId) {
+    return ONBOARDING_STORAGE_KEY;
+  }
+
+  return `${ONBOARDING_STORAGE_KEY}:${userId}`;
+}
+
 async function migrateLegacyProfileToLocal(): Promise<UserProfile | null> {
   const legacyRaw = await AsyncStorage.getItem(PROFILE_STORAGE_KEY);
   if (!legacyRaw) {

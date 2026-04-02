@@ -5,7 +5,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { palette } from '../tokens';
 import { AppUser } from '../services/authService';
-import { ONBOARDING_STORAGE_KEY } from '../services/profileStorage';
+import { getOnboardingStorageKey, ONBOARDING_STORAGE_KEY } from '../services/profileStorage';
 
 // Screens
 import { HomeScreen }       from '../screens/HomeScreen';
@@ -75,9 +75,20 @@ export function AppNavigator({ user }: AppNavigatorProps) {
       }
 
       try {
-        const hasOnboarded = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        const perUserKey = getOnboardingStorageKey(user.id);
+        const hasOnboarded = await AsyncStorage.getItem(perUserKey);
+
+        if (!hasOnboarded) {
+          const legacyOnboarded = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+          if (legacyOnboarded === 'true') {
+            await AsyncStorage.setItem(perUserKey, 'true');
+            await AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY);
+          }
+        }
+
+        const effectiveOnboarded = await AsyncStorage.getItem(perUserKey);
         if (mounted) {
-          setInitialRoute(hasOnboarded === 'true' ? 'MainTabs' : 'Onboarding');
+          setInitialRoute(effectiveOnboarded === 'true' ? 'MainTabs' : 'Onboarding');
           setInitializing(false);
         }
       } catch {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { palette, spacing, typography } from '../tokens';
 import { Medication, UserProfile } from '../types/profile';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ONBOARDING_STORAGE_KEY, saveUserProfile } from '../services/profileStorage';
+import { AuthService } from '../services/authService';
+import { getOnboardingStorageKey, ONBOARDING_STORAGE_KEY, saveUserProfile } from '../services/profileStorage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,6 +31,8 @@ interface OnboardingProfile {
   age: string;
   sex: string;
   bloodType: string;
+  heightUnit: 'cm' | 'ft';
+  weightUnit: 'kg' | 'lbs';
   height: string;
   weight: string;
   bloodPressure: string;
@@ -53,6 +56,8 @@ const CONDITION_OPTIONS = [
   'Hypertension', 'Diabetes', 'Asthma',
   'Arthritis', 'Tuberculosis', 'Thyroid disorder',
 ];
+
+const BLOOD_TYPE_OPTIONS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 const STEPS = [
   { id: 1, label: 'Personal', title: 'Tell us\nabout you.', sub: 'Basic info so Iris knows who she\'s talking to.' },
@@ -107,10 +112,57 @@ function InlineInput(props: React.ComponentProps<typeof TextInput>) {
   return <TextInput style={styles.inlineInput} placeholderTextColor={palette.muted} {...props} />;
 }
 
+function SelectField({
+  value,
+  placeholder,
+  options,
+  open,
+  onToggle,
+  onSelect,
+}: {
+  value: string;
+  placeholder: string;
+  options: string[];
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <View>
+      <TouchableOpacity style={styles.selectInput} onPress={onToggle} activeOpacity={0.8}>
+        <Text style={[styles.selectValue, !value && styles.selectPlaceholder]}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={palette.muted} />
+      </TouchableOpacity>
+
+      {open ? (
+        <View style={styles.selectMenu}>
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option}
+              style={styles.selectOption}
+              onPress={() => {
+                onSelect(option);
+                onToggle();
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.selectOptionText}>{option}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 // ─────────────────────────────────────────────
 // STEP CONTENT
 // ─────────────────────────────────────────────
 function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: keyof OnboardingProfile, v: any) => void }) {
+  const [bloodTypeOpen, setBloodTypeOpen] = useState(false);
+
   return (
     <View style={styles.stepBody}>
       <FieldLabel>Full name</FieldLabel>
@@ -131,10 +183,13 @@ function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: k
         </View>
         <View style={styles.fieldHalf}>
           <FieldLabel>Blood type</FieldLabel>
-          <InlineInput
-            placeholder=""
+          <SelectField
             value={profile.bloodType}
-            onChangeText={(v) => set('bloodType', v)}
+            placeholder="Select"
+            options={BLOOD_TYPE_OPTIONS}
+            open={bloodTypeOpen}
+            onToggle={() => setBloodTypeOpen((prev) => !prev)}
+            onSelect={(value) => set('bloodType', value)}
           />
         </View>
       </View>
@@ -149,26 +204,115 @@ function StepPersonal({ profile, set }: { profile: OnboardingProfile; set: (k: k
 }
 
 function StepVitals({ profile, set }: { profile: OnboardingProfile; set: (k: keyof OnboardingProfile, v: any) => void }) {
+  const numericOnly = (value: string) => value.replace(/\D/g, '');
+  const formatFeetInput = (value: string) => {
+    const digits = numericOnly(value).slice(0, 3);
+
+    if (digits.length <= 1) {
+      return digits;
+    }
+
+    return `${digits.slice(0, 1)}'${digits.slice(1)}`;
+  };
+  const [systolic = '', diastolic = ''] = profile.bloodPressure.split('/');
+  const [heightUnitOpen, setHeightUnitOpen] = useState(false);
+  const [weightUnitOpen, setWeightUnitOpen] = useState(false);
+
   return (
     <View style={styles.stepBody}>
       <View style={styles.rowFields}>
         <View style={styles.fieldHalf}>
           <FieldLabel>Height</FieldLabel>
-          <InlineInput placeholder="e.g. 165 cm" value={profile.height} onChangeText={(v) => set('height', v)} />
+          <View style={styles.unitInputRow}>
+            <TextInput
+              style={styles.unitInput}
+              placeholder=""
+              keyboardType="number-pad"
+              value={profile.heightUnit === 'ft' ? formatFeetInput(profile.height) : profile.height}
+              onChangeText={(v) =>
+                set('height', profile.heightUnit === 'ft' ? formatFeetInput(v) : numericOnly(v))
+              }
+              maxLength={profile.heightUnit === 'ft' ? 4 : 3}
+            />
+            <View style={styles.unitDropdownWrap}>
+              <SelectField
+                value={profile.heightUnit}
+                placeholder="Unit"
+                options={['cm', 'ft']}
+                open={heightUnitOpen}
+                onToggle={() => setHeightUnitOpen((prev) => !prev)}
+                onSelect={(value) => {
+                  const nextUnit = value as 'cm' | 'ft';
+                  set('heightUnit', nextUnit);
+                  set('height', nextUnit === 'ft' ? formatFeetInput(profile.height) : numericOnly(profile.height));
+                }}
+              />
+            </View>
+          </View>
         </View>
         <View style={styles.fieldHalf}>
           <FieldLabel>Weight</FieldLabel>
-          <InlineInput placeholder="e.g. 68 kg" value={profile.weight} onChangeText={(v) => set('weight', v)} />
+          <View style={styles.unitInputRow}>
+            <TextInput
+              style={styles.unitInput}
+              placeholder=""
+              keyboardType="number-pad"
+              value={profile.weight}
+              onChangeText={(v) => set('weight', numericOnly(v))}
+              maxLength={3}
+            />
+            <View style={styles.unitDropdownWrap}>
+              <SelectField
+                value={profile.weightUnit}
+                placeholder="Unit"
+                options={['kg', 'lbs']}
+                open={weightUnitOpen}
+                onToggle={() => setWeightUnitOpen((prev) => !prev)}
+                onSelect={(value) => set('weightUnit', value as 'kg' | 'lbs')}
+              />
+            </View>
+          </View>
         </View>
       </View>
       <View style={styles.rowFields}>
         <View style={styles.fieldHalf}>
           <FieldLabel>Blood pressure</FieldLabel>
-          <InlineInput placeholder="e.g. 120/80" value={profile.bloodPressure} onChangeText={(v) => set('bloodPressure', v)} />
+          <View style={styles.unitInputRow}>
+            <View style={styles.bpGroup}>
+              <TextInput
+                style={styles.unitInput}
+                placeholder=""
+                keyboardType="number-pad"
+                value={systolic}
+                onChangeText={(v) => set('bloodPressure', `${numericOnly(v)}/${diastolic}`)}
+                maxLength={3}
+              />
+              <Text style={styles.bpSlash}>/</Text>
+              <TextInput
+                style={styles.unitInput}
+                placeholder=""
+                keyboardType="number-pad"
+                value={diastolic}
+                onChangeText={(v) => set('bloodPressure', `${systolic}/${numericOnly(v)}`)}
+                maxLength={3}
+              />
+            </View>
+            <Text style={styles.unitSuffix}>mmHg</Text>
+          </View>
         </View>
         <View style={styles.fieldHalf}>
           <FieldLabel>Blood sugar</FieldLabel>
-          <InlineInput placeholder="e.g. 95 mg/dL" value={profile.bloodSugar} onChangeText={(v) => set('bloodSugar', v)} />
+          <View style={styles.unitInputRow}>
+            <TextInput
+              style={styles.unitInput}
+              placeholder=""
+              keyboardType="number-pad"
+              value={profile.bloodSugar}
+              onChangeText={(v) => set('bloodSugar', numericOnly(v))}
+              maxLength={3}
+            />
+            <Text style={styles.unitSuffix}>mg/dL</Text>
+          </View>
         </View>
       </View>
       <View style={styles.hintBox}>
@@ -335,12 +479,15 @@ export function OnboardingScreen({ navigation }: any) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const isTransitioningRef = useRef(false);
 
   const [profile, setProfile] = useState<OnboardingProfile>({
     name: '',
     age: '',
     sex: '',
     bloodType: '',
+    heightUnit: 'cm',
+    weightUnit: 'kg',
     height: '',
     weight: '',
     bloodPressure: '',
@@ -364,19 +511,41 @@ export function OnboardingScreen({ navigation }: any) {
   };
 
   const transition = (nextStep: number) => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start(() => {
-      setStep(nextStep);
+    if (isTransitioningRef.current || nextStep === step) {
+      return;
+    }
+
+    isTransitioningRef.current = true;
+    fadeAnim.stopAnimation(() => {
       Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (!finished) {
+          isTransitioningRef.current = false;
+          return;
+        }
+
+        setStep(nextStep);
+        fadeAnim.setValue(0);
+
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: false,
+        }).start(() => {
+          isTransitioningRef.current = false;
+        });
+      });
     });
   };
+
+  useEffect(() => {
+    return () => {
+      fadeAnim.stopAnimation();
+    };
+  }, [fadeAnim]);
 
   const goNext = () => {
     if (step < STEPS.length - 1) {
@@ -404,8 +573,8 @@ export function OnboardingScreen({ navigation }: any) {
       doctor: '',
       clinic: '',
       philhealth: '',
-      height: profile.height,
-      weight: profile.weight,
+      height: profile.height ? `${profile.height} ${profile.heightUnit}` : '',
+      weight: profile.weight ? `${profile.weight} ${profile.weightUnit}` : '',
       bloodPressure: profile.bloodPressure,
       bloodSugar: profile.bloodSugar,
       medications: profile.medications,
@@ -425,7 +594,9 @@ export function OnboardingScreen({ navigation }: any) {
     try {
       setSaving(true);
       await saveUserProfile(userProfile);
-      await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+      const userId = AuthService.getCurrentUserId();
+      await AsyncStorage.setItem(getOnboardingStorageKey(userId), 'true');
+      await AsyncStorage.removeItem(ONBOARDING_STORAGE_KEY);
       navigation.replace('MainTabs');
     } catch (error) {
       if (__DEV__) {
@@ -471,7 +642,7 @@ export function OnboardingScreen({ navigation }: any) {
               <Ionicons name="arrow-back" size={18} color={palette.ink} />
             </TouchableOpacity>
           ) : (
-            <View style={styles.backBtn} />
+            <View style={styles.backBtnPlaceholder} />
           )}
 
           <View style={styles.dots}>
@@ -523,13 +694,6 @@ export function OnboardingScreen({ navigation }: any) {
             <Text style={styles.nextBtnText}>
               {isLast ? (saving ? 'Saving...' : 'Save & continue') : 'Next'}
             </Text>
-            <View style={styles.nextArrow}>
-              <Ionicons
-                name={isLast ? 'checkmark' : 'arrow-forward'}
-                size={16}
-                color={palette.terracotta}
-              />
-            </View>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -560,6 +724,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  backBtnPlaceholder: {
+    width: 36,
+    height: 36,
+  },
   dots: {
     flexDirection: 'row',
     gap: 6,
@@ -581,7 +749,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: typography.sans,
     fontWeight: '600',
   },
@@ -664,6 +832,78 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.08)',
     paddingVertical: 10,
     marginBottom: spacing.xs,
+  },
+  unitInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    paddingVertical: 8,
+    marginBottom: spacing.xs,
+    gap: 8,
+  },
+  unitInput: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 15,
+    color: palette.ink,
+    paddingVertical: 2,
+  },
+  unitDropdownWrap: {
+    width: 86,
+  },
+  unitSuffix: {
+    fontFamily: typography.sans,
+    fontSize: 12,
+    color: palette.muted,
+    fontWeight: '600',
+  },
+  selectInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+    paddingVertical: 10,
+    gap: 6,
+  },
+  selectValue: {
+    flex: 1,
+    fontFamily: typography.sans,
+    fontSize: 15,
+    color: palette.ink,
+  },
+  selectPlaceholder: {
+    color: palette.muted,
+  },
+  selectMenu: {
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    backgroundColor: palette.white,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  selectOption: {
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+  },
+  selectOptionText: {
+    fontFamily: typography.sans,
+    fontSize: 14,
+    color: palette.ink,
+  },
+  bpGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bpSlash: {
+    fontFamily: typography.sans,
+    fontSize: 16,
+    color: palette.muted,
+    fontWeight: '700',
   },
   rowFields: { flexDirection: 'row', gap: spacing.md },
   fieldHalf: { flex: 1 },
@@ -842,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   stepCounter: {
     color: palette.muted,
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: typography.sans,
     fontWeight: '600',
   },
@@ -850,29 +1090,21 @@ const styles = StyleSheet.create({
     backgroundColor: palette.terracotta,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingLeft: spacing.xl,
-    paddingRight: 14,
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: spacing.xl,
     borderRadius: 100,
-    gap: spacing.md,
     shadowColor: palette.terracotta,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 4,
+    minWidth: 158,
   },
   nextBtnText: {
     color: palette.white,
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: typography.sans,
     fontWeight: '700',
-  },
-  nextArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: palette.white,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

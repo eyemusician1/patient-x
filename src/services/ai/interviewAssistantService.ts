@@ -5,9 +5,9 @@ import { AI_CONFIG } from '../../config/ai';
 
 const providers = [backendProxyProvider, templateProvider];
 
-function buildInterviewSystemPrompt(firstName?: string): string {
+function buildInterviewSystemPrompt(firstName?: string, profileContext?: string): string {
   const greetingName = firstName ? `The patient's first name is ${firstName}.` : 'The patient first name may be unknown.';
-  return [
+  const coreInstructions = [
     'You are a clinical interview assistant for visit preparation, not a doctor.',
     greetingName,
     'Collect history clearly: symptom, onset, duration, severity, triggers/relief, associated symptoms, meds, allergies, and red flags.',
@@ -16,6 +16,12 @@ function buildInterviewSystemPrompt(firstName?: string): string {
     'If red-flag symptoms appear, advise urgent in-person care clearly.',
     'Keep response concise: maximum 3 sentences.',
   ].join(' ');
+
+  if (!profileContext || profileContext.trim().length === 0) {
+    return coreInstructions;
+  }
+
+  return `${coreInstructions}\n\n${profileContext.trim()}`;
 }
 
 function isLowQualityReply(text: string): boolean {
@@ -51,7 +57,7 @@ export async function generateInterviewReply(request: ModelReplyRequest): Promis
       askOneQuestion: true,
       includeSafetyReminder: true,
     },
-    systemPrompt: request.systemPrompt ?? buildInterviewSystemPrompt(request.context?.firstName),
+    systemPrompt: request.systemPrompt ?? buildInterviewSystemPrompt(request.context?.firstName, request.context?.profileContext),
   };
 
   for (const provider of providers) {

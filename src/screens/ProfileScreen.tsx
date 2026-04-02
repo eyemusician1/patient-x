@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ImageBackground,
+  Modal,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AuthService } from '../services/authService';
@@ -65,6 +66,8 @@ export function ProfileScreen({ route, navigation }: any) {
   const [addingMed, setAddingMed] = useState(false);
   const [newAllergy, setNewAllergy] = useState('');
   const [addingAllergy, setAddingAllergy] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const set = (key: keyof UserProfile, value: any) =>
     setProfile((p) => ({ ...p, [key]: value }));
@@ -142,11 +145,15 @@ export function ProfileScreen({ route, navigation }: any) {
 
   const handleLogout = async () => {
     try {
+      setLoggingOut(true);
       await AuthService.signOut();
     } catch (error) {
       if (__DEV__) {
         console.error('Logout failed', error instanceof Error ? error.message : String(error));
       }
+    } finally {
+      setLoggingOut(false);
+      setLogoutModalVisible(false);
     }
   };
 
@@ -352,10 +359,46 @@ export function ProfileScreen({ route, navigation }: any) {
         <TouchableOpacity
           style={styles.logoutButton}
           activeOpacity={0.85}
-          onPress={handleLogout}
+          onPress={() => setLogoutModalVisible(true)}
         >
           <Text style={styles.logoutButtonText}>Sign out</Text>
         </TouchableOpacity>
+
+        <Modal
+          visible={logoutModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLogoutModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Sign out?</Text>
+              <Text style={styles.modalMessage}>
+                You will need to sign in again to access your profile and records.
+              </Text>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  activeOpacity={0.8}
+                  onPress={() => setLogoutModalVisible(false)}
+                  disabled={loggingOut}
+                >
+                  <Text style={styles.modalSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalPrimaryButton, loggingOut && styles.modalPrimaryButtonDisabled]}
+                  activeOpacity={0.8}
+                  onPress={handleLogout}
+                  disabled={loggingOut}
+                >
+                  <Text style={styles.modalPrimaryText}>{loggingOut ? 'Signing out...' : 'Sign out'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
       </ScrollView>
     </ImageBackground>
@@ -611,5 +654,69 @@ const styles = StyleSheet.create({
     fontSize: 17, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(16, 24, 40, 0.28)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 390,
+    backgroundColor: palette.white,
+    borderRadius: 20,
+    padding: spacing.xl + 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+  },
+  modalTitle: {
+    color: palette.ink,
+    fontSize: 22,
+    fontFamily: typography.sans,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  modalMessage: {
+    color: palette.muted,
+    fontSize: 16,
+    fontFamily: typography.sans,
+    lineHeight: 23,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  modalSecondaryButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 100,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  modalSecondaryText: {
+    color: palette.muted,
+    fontSize: 15,
+    fontFamily: typography.sans,
+    fontWeight: '600',
+  },
+  modalPrimaryButton: {
+    borderRadius: 100,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    backgroundColor: palette.terracotta,
+  },
+  modalPrimaryButtonDisabled: {
+    opacity: 0.7,
+  },
+  modalPrimaryText: {
+    color: palette.white,
+    fontSize: 15,
+    fontFamily: typography.sans,
+    fontWeight: '700',
   },
 });

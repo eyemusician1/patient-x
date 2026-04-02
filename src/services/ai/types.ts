@@ -2,6 +2,7 @@ import { InterviewMessage } from '../../types/interview';
 
 export interface InterviewReplyContext {
   firstName?: string;
+  profileContext?: string;
 }
 
 export interface InterviewReplyConstraints {

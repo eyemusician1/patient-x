@@ -11,7 +11,9 @@ import {
   syncPendingInterviewSessionsToCloud,
 } from '../services/interviewRepository';
 import { generateInterviewReply } from '../services/ai/interviewAssistantService';
+import { loadUserProfile } from '../services/profileStorage';
 import { InterviewSession } from '../types/interview';
+import { buildIrisContext } from '../types/profile';
 import { palette, spacing, typography } from '../tokens';
 
 function createStarterSession(sessionId: string, firstName: string): InterviewSession {
@@ -59,6 +61,7 @@ export function InterviewScreen({ navigation, route }: any) {
   const [session, setSession] = useState<InterviewSession>(() => createStarterSession(sessionIdRef.current, firstName));
   const [draft, setDraft] = useState('');
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
+  const [profileContext, setProfileContext] = useState<string>('');
   const hydratedRef = useRef(false);
   const scrollViewRef = useRef<ScrollView | null>(null);
 
@@ -89,6 +92,17 @@ export function InterviewScreen({ navigation, route }: any) {
           setSession(existing);
         } else {
           setSession(createStarterSession(targetSessionId, firstName));
+        }
+
+        try {
+          const savedProfile = await loadUserProfile();
+          if (mounted) {
+            setProfileContext(buildIrisContext(savedProfile));
+          }
+        } catch {
+          if (mounted) {
+            setProfileContext('');
+          }
         }
       } finally {
         if (mounted) {
@@ -163,7 +177,7 @@ export function InterviewScreen({ navigation, route }: any) {
       const reply = await generateInterviewReply({
         userInput: trimmed,
         messageHistory: nextMessages,
-        context: { firstName },
+        context: { firstName, profileContext },
       });
 
       const assistantCreatedAt = Date.now();
