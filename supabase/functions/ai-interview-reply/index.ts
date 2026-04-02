@@ -63,7 +63,7 @@ async function callGemini(model: string, prompt: string) {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 400,
+        maxOutputTokens: 800,
       },
     }),
   });
@@ -107,7 +107,7 @@ async function callGroq(prompt: string) {
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.4,
-      max_tokens: 400,
+      max_tokens: 800,
     }),
   });
 

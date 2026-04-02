@@ -28,6 +28,22 @@ function buildEndpointUrl(): string {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+// Wraps fetch with a Promise.race timeout instead of AbortController+setTimeout,
+// which is unreliable on Hermes in release builds and can abort mid-response.
+function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const fetchPromise = fetch(url, options);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs}ms`)), timeoutMs),
+  );
+
+  return Promise.race([fetchPromise, timeoutPromise]);
+}
+
 export const backendProxyProvider: InterviewModelProvider = {
   name: 'backend-proxy',
   canRun: () => buildEndpointUrl().length > 0,
@@ -55,16 +71,16 @@ export const backendProxyProvider: InterviewModelProvider = {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), AI_CONFIG.requestTimeoutMs);
-
       try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(request),
-          signal: controller.signal,
-        });
+        const response = await fetchWithTimeout(
+          url,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(request),
+          },
+          AI_CONFIG.requestTimeoutMs,
+        );
 
         if (!response.ok) {
           const raw = await response.text();
@@ -99,8 +115,6 @@ export const backendProxyProvider: InterviewModelProvider = {
           await wait(300 * (attempt + 1));
           continue;
         }
-      } finally {
-        clearTimeout(timeout);
       }
     }
 
