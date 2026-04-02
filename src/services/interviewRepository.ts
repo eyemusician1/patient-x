@@ -1,8 +1,8 @@
-import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { InterviewSessionRecord } from '../db/models/InterviewSessionRecord';
+import { AuthService } from './authService';
 import { INITIAL_INTERVIEW_PROMPT, InterviewMessage, InterviewSession } from '../types/interview';
 
 type SyncState = 'pending' | 'synced';
@@ -61,7 +61,7 @@ export function normalizeInterviewSession(value: unknown): InterviewSession | nu
 }
 
 function getCurrentUserId(): string {
-  return auth().currentUser?.uid ?? 'local-anonymous';
+  return AuthService.getCurrentUserId() ?? 'local-anonymous';
 }
 
 function sessionsCollection() {

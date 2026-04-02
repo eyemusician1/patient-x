@@ -2,18 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { ActivityIndicator, View } from 'react-native';
 import { palette } from './src/tokens';
+import { AppUser, AuthService } from './src/services/authService';
 import { syncAllUserData } from './src/services/syncService';
 
 export default function App() {
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(u => {
+    const unsubscribe = AuthService.onAuthStateChange((u) => {
       setUser(u);
       if (initializing) setInitializing(false);
     });
@@ -32,7 +32,7 @@ export default function App() {
     });
   }, [user]);
 
-  // Show spinner while Firebase checks existing session
+  // Show spinner while auth state checks existing session
   if (initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: palette.bg }}>

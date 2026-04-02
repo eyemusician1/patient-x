@@ -12,17 +12,18 @@ export function WelcomeScreen() {
       await AuthService.signInWithGoogle();
       // Notice: No navigation call here! AppNavigator handles the swap.
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       if (__DEV__) {
-        console.error('Login failed', error instanceof Error ? error.message : String(error));
+        console.error('Login failed', message);
       }
-      Alert.alert('Sign-in failed', 'Please try again.');
+      Alert.alert('Sign-in failed', message || 'Please try again.');
       setLoading(false);
     }
   };
 
   return (
     <ImageBackground
-      source={require('../../assets/images/login-bg2.png')}
+      source={require('../../assets/images/login-bg2.jpg')}
       style={styles.background}
       resizeMode="cover"
     >

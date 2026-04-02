@@ -1,8 +1,8 @@
-import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { UserProfileRecord } from '../db/models/UserProfileRecord';
+import { AuthService } from './authService';
 import { DEFAULT_PROFILE, UserProfile } from '../types/profile';
 
 type SyncState = 'pending' | 'synced';
@@ -35,7 +35,7 @@ export function normalizeProfile(value: unknown): UserProfile {
 }
 
 function getCurrentUserId(): string {
-  return auth().currentUser?.uid ?? 'local-anonymous';
+  return AuthService.getCurrentUserId() ?? 'local-anonymous';
 }
 
 function profilesCollection() {

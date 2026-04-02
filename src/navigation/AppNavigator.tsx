@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { palette } from '../tokens';
+import { AppUser } from '../services/authService';
 import { ONBOARDING_STORAGE_KEY } from '../services/profileStorage';
 
 // Screens
@@ -55,7 +55,7 @@ function MainTabs() {
 }
 
 interface AppNavigatorProps {
-  user: FirebaseAuthTypes.User | null;
+  user: AppUser | null;
 }
 
 export function AppNavigator({ user }: AppNavigatorProps) {

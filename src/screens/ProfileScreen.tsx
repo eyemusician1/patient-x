@@ -9,17 +9,13 @@ import {
   ImageBackground,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import auth from '@react-native-firebase/auth';
+import { AuthService } from '../services/authService';
 import { palette, spacing, typography } from '../tokens';
 import {
   UserProfile,
   DEFAULT_PROFILE,
 } from '../types/profile';
 import { loadUserProfile, saveUserProfile } from '../services/profileStorage';
-
-// ─────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 // SECTION WRAPPER
@@ -146,8 +142,7 @@ export function ProfileScreen({ route, navigation }: any) {
 
   const handleLogout = async () => {
     try {
-      // Sign out via Firebase instead of a manual navigation.replace
-      await auth().signOut();
+      await AuthService.signOut();
     } catch (error) {
       if (__DEV__) {
         console.error('Logout failed', error instanceof Error ? error.message : String(error));
@@ -155,13 +150,9 @@ export function ProfileScreen({ route, navigation }: any) {
     }
   };
 
-  // Grab the user for a dynamic title
-  const user = auth().currentUser;
-  const displayTitle = user?.displayName ? `${user.displayName.split(' ')[0]}'s Profile` : 'Health Profile';
-
   return (
     <ImageBackground
-      source={require('../../assets/images/login-bg2.png')}
+      source={require('../../assets/images/login-bg2.jpg')}
       style={styles.backgroundImage}
       imageStyle={styles.backgroundImageStyle}
       resizeMode="cover"
@@ -176,46 +167,8 @@ export function ProfileScreen({ route, navigation }: any) {
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.headerLabel}>YOUR DATA</Text>
-          <Text style={styles.headerTitle}>{displayTitle}</Text>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
-
-        {/* ── THIS VISIT ── */}
-        <Section label="THIS VISIT">
-          <Text style={styles.fieldLabel}>Chief complaint</Text>
-          <TextInput
-            style={[styles.ghostInput, { minHeight: 72 }]}
-            placeholder="What's your main concern today?"
-            placeholderTextColor={palette.muted}
-            multiline
-            value={profile.chiefComplaint}
-            onChangeText={(v) => set('chiefComplaint', v)}
-          />
-          <View style={styles.divider} />
-          <Text style={styles.fieldLabel}>Doctor / Specialist</Text>
-          <TextInput
-            style={styles.inlineInput}
-            placeholder="e.g. Dr. Reyes"
-            placeholderTextColor={palette.muted}
-            value={profile.doctor}
-            onChangeText={(v) => set('doctor', v)}
-          />
-          <Text style={styles.fieldLabel}>Clinic / Hospital</Text>
-          <TextInput
-            style={styles.inlineInput}
-            placeholder="e.g. Ospital ng Maynila"
-            placeholderTextColor={palette.muted}
-            value={profile.clinic}
-            onChangeText={(v) => set('clinic', v)}
-          />
-          <Text style={styles.fieldLabel}>PhilHealth / HMO</Text>
-          <TextInput
-            style={styles.inlineInput}
-            placeholder="Card number or provider"
-            placeholderTextColor={palette.muted}
-            value={profile.philhealth}
-            onChangeText={(v) => set('philhealth', v)}
-          />
-        </Section>
 
         {/* ── USER DATA (ESSENTIAL) ── */}
         <Section label="USER DATA">
@@ -309,8 +262,8 @@ export function ProfileScreen({ route, navigation }: any) {
             activeOpacity={0.85}
             onPress={() => navigation.navigate('AdvancedHealthDetails')}
           >
-            <Text style={styles.advancedDetailsButtonText}>Open Advanced Health Details</Text>
-            <Ionicons name="arrow-forward" size={16} color={palette.white} />
+            <Text style={styles.advancedDetailsButtonText}>Advanced Health Details</Text>
+            <Ionicons name="arrow-forward" size={20} color={palette.white} />
           </TouchableOpacity>
         </Section>
 
@@ -322,8 +275,8 @@ export function ProfileScreen({ route, navigation }: any) {
                 <Text style={styles.itemTitle}>{med.name}</Text>
                 {!!med.info && <Text style={styles.itemSub}>{med.info}</Text>}
               </View>
-              <TouchableOpacity onPress={() => removeMed(med.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close" size={16} color={palette.muted} />
+              <TouchableOpacity onPress={() => removeMed(med.id)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <Ionicons name="close" size={22} color={palette.muted} />
               </TouchableOpacity>
             </View>
           ))}
@@ -350,13 +303,13 @@ export function ProfileScreen({ route, navigation }: any) {
                   <Text style={styles.cancelText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.addConfirmBtn} onPress={addMed}>
-                  <Text style={styles.addConfirmText}>Add</Text>
+                  <Text style={styles.addConfirmText}>Add Medication</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <TouchableOpacity style={styles.textButton} onPress={() => setAddingMed(true)}>
-              <Ionicons name="add" size={18} color={palette.terracotta} />
+              <Ionicons name="add" size={22} color={palette.terracotta} />
               <Text style={styles.textButtonText}>Add medication</Text>
             </TouchableOpacity>
           )}
@@ -373,7 +326,7 @@ export function ProfileScreen({ route, navigation }: any) {
                 activeOpacity={0.7}
               >
                 <Text style={styles.allergyPillText}>{a}</Text>
-                <Ionicons name="close" size={12} color={palette.muted} style={{ marginLeft: 4 }} />
+                <Ionicons name="close" size={16} color={palette.muted} style={{ marginLeft: 6 }} />
               </TouchableOpacity>
             ))}
             {addingAllergy ? (
@@ -389,7 +342,7 @@ export function ProfileScreen({ route, navigation }: any) {
               />
             ) : (
               <TouchableOpacity style={styles.addPill} onPress={() => setAddingAllergy(true)}>
-                <Ionicons name="add" size={16} color={palette.muted} />
+                <Ionicons name="add" size={22} color={palette.muted} />
               </TouchableOpacity>
             )}
           </View>
@@ -428,7 +381,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.xl },
   headerLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: 13, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -436,27 +389,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: palette.ink,
-    fontSize: 44,
+    fontSize: 46, // Scaled up
     fontFamily: typography.serif,
     letterSpacing: -1,
     marginBottom: spacing.sm,
-  },
-  irisSync: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  irisSyncDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: '#1F8FAF',
-  },
-  irisSyncText: {
-    color: '#1F8FAF',
-    fontSize: 12,
-    fontFamily: typography.sans,
-    fontWeight: '600',
   },
   section: { marginBottom: spacing.lg },
   sectionLabelRow: { marginBottom: spacing.sm },
@@ -469,7 +405,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: palette.muted,
-    fontSize: 10,
+    fontSize: 11, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -483,7 +419,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: palette.muted,
-    fontSize: 12,
+    fontSize: 13, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -492,9 +428,9 @@ const styles = StyleSheet.create({
   },
   fieldHint: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 15, // Scaled up
     fontFamily: typography.sans,
-    lineHeight: 18,
+    lineHeight: 20,
     marginBottom: spacing.md,
   },
   rowFields: {
@@ -504,16 +440,16 @@ const styles = StyleSheet.create({
   fieldHalf: { flex: 1 },
   inlineInput: {
     fontFamily: typography.sans,
-    fontSize: 16,
+    fontSize: 17, // Scaled up
     color: palette.ink,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.08)',
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: spacing.xs,
   },
   ghostInput: {
     fontFamily: typography.sans,
-    fontSize: 16,
+    fontSize: 17, // Scaled up
     color: palette.ink,
     textAlignVertical: 'top',
     paddingTop: 4,
@@ -527,22 +463,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md, // Increased padding
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   listItemLeft: { flex: 1 },
   itemTitle: {
-    fontSize: 17,
+    fontSize: 19, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '600',
     color: palette.ink,
   },
   itemSub: {
-    fontSize: 14,
+    fontSize: 15, // Scaled up
     fontFamily: typography.sans,
     color: palette.muted,
-    marginTop: 2,
+    marginTop: 4,
   },
   textButton: {
     flexDirection: 'row',
@@ -550,11 +486,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   textButtonText: {
-    fontSize: 16,
+    fontSize: 18, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '600',
     color: palette.terracotta,
-    marginLeft: 6,
+    marginLeft: 8,
   },
   addMedForm: { gap: 4, marginTop: spacing.sm },
   addMedActions: {
@@ -566,18 +502,18 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: palette.muted,
-    fontSize: 15,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
   },
   addConfirmBtn: {
     backgroundColor: palette.terracotta,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingVertical: 10, // Increased padding
+    paddingHorizontal: 24, // Increased padding
     borderRadius: 100,
   },
   addConfirmText: {
     color: palette.white,
-    fontSize: 15,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
   },
@@ -589,8 +525,8 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16, // Scaled up
+    paddingVertical: 10, // Scaled up
     borderRadius: 100,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -600,7 +536,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(31, 143, 175, 0.3)',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: 15, // Scaled up
     fontFamily: typography.sans,
     color: palette.muted,
     fontWeight: '500',
@@ -613,113 +549,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 18, // Significantly scaled up padding
+    paddingVertical: 12, // Significantly scaled up padding
     borderRadius: 100,
   },
   allergyPillText: {
-    fontSize: 14,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
     color: palette.ink,
     fontWeight: '500',
   },
   allergyInput: {
-    fontSize: 15,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
     color: palette.ink,
     borderBottomWidth: 1,
     borderBottomColor: palette.muted,
-    minWidth: 120,
-    paddingVertical: 4,
+    minWidth: 140,
+    paddingVertical: 6,
   },
   addPill: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44, // Scaled up width
+    height: 44, // Scaled up height
+    borderRadius: 22,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: palette.muted,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  yesNoRow: {
+  advancedDetailsButton: {
+    marginTop: spacing.md,
+    backgroundColor: '#1F8FAF',
+    borderRadius: 18,
+    paddingVertical: 16, // Extra vertical padding for larger touch target
+    paddingHorizontal: 20, // Extra horizontal padding
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
   },
-  yesNoLabel: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: typography.sans,
-    color: palette.ink,
-    paddingRight: spacing.md,
-  },
-  yesNoButtons: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  yesNoBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 100,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  yesNoBtnActive: {
-    backgroundColor: 'rgba(31, 143, 175, 0.1)',
-    borderColor: 'rgba(31, 143, 175, 0.3)',
-  },
-  yesNoBtnText: {
-    fontSize: 13,
-    fontFamily: typography.sans,
-    color: palette.muted,
-    fontWeight: '600',
-  },
-  yesNoBtnTextActive: {
-    color: '#1F8FAF',
-  },
-  irisPreviewCard: {
-    backgroundColor: 'rgba(31, 143, 175, 0.05)',
-    borderRadius: 24,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(31, 143, 175, 0.12)',
-    marginBottom: spacing.lg,
-  },
-  irisPreviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: spacing.md,
-  },
-  irisPreviewTitle: {
-    color: '#1F8FAF',
-    fontSize: 14,
+  advancedDetailsButtonText: {
+    color: palette.white,
+    fontSize: 17, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  irisPreviewBody: {
-    fontFamily: typography.sans,
-    fontSize: 13,
-    color: palette.muted,
-    lineHeight: 18,
-    marginBottom: spacing.sm,
-  },
-  irisPreviewHint: {
-    fontFamily: typography.sans,
-    fontSize: 12,
-    color: 'rgba(31, 143, 175, 0.6)',
-    fontStyle: 'italic',
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 16,
+    paddingVertical: 18, // Taller button
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
@@ -728,24 +608,8 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: palette.muted,
-    fontSize: 16,
+    fontSize: 17, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '600',
-  },
-  advancedDetailsButton: {
-    marginTop: spacing.xs,
-    backgroundColor: '#1F8FAF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  advancedDetailsButtonText: {
-    color: palette.white,
-    fontSize: 15,
-    fontFamily: typography.sans,
-    fontWeight: '700',
   },
 });

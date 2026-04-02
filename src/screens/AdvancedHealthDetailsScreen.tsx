@@ -165,7 +165,7 @@ export function AdvancedHealthDetailsScreen({ navigation }: any) {
 
   return (
     <ImageBackground
-      source={require('../../assets/images/login-bg2.png')}
+      source={require('../../assets/images/login-bg2.jpg')}
       style={styles.backgroundImage}
       imageStyle={styles.backgroundImageStyle}
       resizeMode="cover"
@@ -183,8 +183,7 @@ export function AdvancedHealthDetailsScreen({ navigation }: any) {
             activeOpacity={0.8}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={16} color={palette.ink} />
-            <Text style={styles.backButtonText}>Back</Text>
+            <Ionicons name="arrow-back" size={24} color={palette.ink} />
           </TouchableOpacity>
           <Text style={styles.headerLabel}>ADVANCED HEALTH</Text>
           <Text style={styles.headerTitle}>Additional Details</Text>
@@ -266,7 +265,7 @@ export function AdvancedHealthDetailsScreen({ navigation }: any) {
         </Section>
 
         <View style={styles.savedHintRow}>
-          <Ionicons name="checkmark-circle" size={14} color="#1F8FAF" />
+          <Ionicons name="checkmark-circle" size={16} color="#1F8FAF" />
           <Text style={styles.savedHint}>Changes save automatically.</Text>
         </View>
       </ScrollView>
@@ -295,32 +294,25 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
   },
   header: { marginBottom: spacing.lg },
   backButton: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+    width: 44, // Clean circular touch target
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
     backgroundColor: 'rgba(255,255,255,0.85)',
     marginBottom: spacing.sm,
-    gap: 4,
-  },
-  backButtonText: {
-    color: palette.ink,
-    fontSize: 13,
-    fontFamily: typography.sans,
-    fontWeight: '600',
   },
   headerLabel: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: 13, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.5,
@@ -328,13 +320,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: palette.ink,
-    fontSize: 40,
+    fontSize: 46, // Scaled up
     fontFamily: typography.serif,
     letterSpacing: -1,
   },
   headerSub: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
     marginTop: spacing.sm,
   },
@@ -349,7 +341,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: palette.muted,
-    fontSize: 9,
+    fontSize: 11, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -368,8 +360,8 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16, // Scaled up padding
+    paddingVertical: 10, // Scaled up padding
     borderRadius: 100,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -379,7 +371,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(31, 143, 175, 0.3)',
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 15, // Scaled up
     fontFamily: typography.sans,
     color: palette.muted,
     fontWeight: '500',
@@ -390,7 +382,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     color: palette.muted,
-    fontSize: 11,
+    fontSize: 13, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -399,24 +391,24 @@ const styles = StyleSheet.create({
   },
   inlineInput: {
     fontFamily: typography.sans,
-    fontSize: 15,
+    fontSize: 17, // Scaled up
     color: palette.ink,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.08)',
-    paddingVertical: 8,
+    paddingVertical: 10, // More padding for larger font
     marginBottom: spacing.xs,
   },
   notesInput: {
     fontFamily: typography.sans,
-    fontSize: 15,
+    fontSize: 17, // Scaled up
     color: palette.ink,
     textAlignVertical: 'top',
-    minHeight: 84,
+    minHeight: 100, // Slightly taller
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   yesNoRow: {
     flexDirection: 'row',
@@ -426,7 +418,7 @@ const styles = StyleSheet.create({
   },
   yesNoLabel: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
     color: palette.ink,
     paddingRight: spacing.md,
@@ -436,8 +428,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   yesNoBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingHorizontal: 18, // Scaled up padding
+    paddingVertical: 10, // Scaled up padding
     borderRadius: 100,
     backgroundColor: 'rgba(0,0,0,0.05)',
     borderWidth: 1,
@@ -448,7 +440,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(31, 143, 175, 0.3)',
   },
   yesNoBtnText: {
-    fontSize: 13,
+    fontSize: 15, // Scaled up
     fontFamily: typography.sans,
     color: palette.muted,
     fontWeight: '600',
@@ -461,11 +453,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
   savedHint: {
     color: '#1F8FAF',
-    fontSize: 12,
+    fontSize: 14, // Scaled up
     fontFamily: typography.sans,
     fontWeight: '600',
   },

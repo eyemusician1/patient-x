@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, ScrollView, Image, Keyboard } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import auth from '@react-native-firebase/auth';
+import { AuthService } from '../services/authService';
 import {
   createDefaultInterviewSession,
   createInterviewSessionId,
@@ -24,16 +24,35 @@ function createStarterSession(sessionId: string, firstName: string): InterviewSe
       ? [
           {
             ...starter,
-            text: `Hello ${firstName}. I'm here to help you prepare for your clinic visit. Let's start simple: what is the main reason you are seeing the doctor today?`,
+            text: `Hello ${firstName}. My name is Iris and I'm here to help you prepare for your clinic visit. What is the main reason you are seeing the doctor today?`,
           },
         ]
       : defaultSession.messages,
   };
 }
 
+// Extracted as a stable component so it unmounts cleanly without
+// leaving stale animated nodes (fixes RN 0.76 New Architecture crash).
+function ThinkingBubble() {
+  return (
+    <View style={styles.messageRow}>
+      <View style={styles.avatar}>
+        <Image source={require('../../assets/images/iris.png')} style={styles.avatarImage} />
+      </View>
+      <View style={[styles.aiBubble, styles.thinkingBubble]}>
+        <ActivityIndicator
+          key="thinking-indicator"
+          size="small"
+          color={palette.terracotta}
+        />
+        <Text style={styles.thinkingText}>Let me think...</Text>
+      </View>
+    </View>
+  );
+}
+
 export function InterviewScreen({ navigation, route }: any) {
-  // Grab the user to dynamically say their name
-  const user = auth().currentUser;
+  const user = AuthService.getCurrentUser();
   const firstName = user?.displayName ? user.displayName.split(' ')[0] : 'there';
   const initialSessionId = route?.params?.sessionId ?? createInterviewSessionId();
   const sessionIdRef = useRef<string>(initialSessionId);
@@ -45,7 +64,7 @@ export function InterviewScreen({ navigation, route }: any) {
 
   const scrollToLatest = () => {
     requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+      scrollViewRef.current?.scrollToEnd({ animated: false });
     });
   };
 
@@ -117,6 +136,9 @@ export function InterviewScreen({ navigation, route }: any) {
     if (!trimmed || isGeneratingReply) {
       return;
     }
+
+    // Immediately dismiss the keyboard when the user presses send
+    Keyboard.dismiss();
 
     const now = Date.now();
     const userMessage = {
@@ -194,7 +216,7 @@ export function InterviewScreen({ navigation, route }: any) {
             <View key={message.id} style={[styles.messageRow, !isAssistant && styles.messageRowUser]}>
               {isAssistant && (
                 <View style={styles.avatar}>
-                  <Ionicons name="medical" size={16} color={palette.terracotta} />
+                  <Image source={require('../../assets/images/iris.png')} style={styles.avatarImage} />
                 </View>
               )}
               <View style={[styles.aiBubble, !isAssistant && styles.userBubble]}>
@@ -205,17 +227,8 @@ export function InterviewScreen({ navigation, route }: any) {
             </View>
           );
         })}
-        {isGeneratingReply ? (
-          <View style={styles.messageRow}>
-            <View style={styles.avatar}>
-              <Ionicons name="medical" size={16} color={palette.terracotta} />
-            </View>
-            <View style={[styles.aiBubble, styles.thinkingBubble]}>
-              <ActivityIndicator size="small" color={palette.terracotta} />
-              <Text style={styles.thinkingText}>Iris is thinking...</Text>
-            </View>
-          </View>
-        ) : null}
+
+        {isGeneratingReply ? <ThinkingBubble /> : null}
       </ScrollView>
 
       <View style={styles.inputWrapper}>
@@ -236,7 +249,7 @@ export function InterviewScreen({ navigation, route }: any) {
             }}
             disabled={isGeneratingReply}
           >
-            <Ionicons name="arrow-up" size={20} color={palette.white} />
+            <Ionicons name="arrow-up" size={24} color={palette.white} />
           </TouchableOpacity>
         </View>
       </View>
@@ -290,27 +303,32 @@ const styles = StyleSheet.create({
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxl, // Added extra margin for bigger bubbles
   },
   messageRowUser: {
     justifyContent: 'flex-end',
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40, // Scaled up
+    height: 40, // Scaled up
+    borderRadius: 20,
     backgroundColor: palette.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md, // Increased gap slightly
     borderWidth: 1,
     borderColor: palette.border,
   },
+  avatarImage: {
+    width: 32, // Scaled up
+    height: 32, // Scaled up
+    borderRadius: 16,
+  },
   aiBubble: {
     backgroundColor: palette.white,
-    padding: spacing.lg,
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
+    padding: 20, // Increased padding
+    borderRadius: 24, // Smoother roundness
+    borderBottomLeftRadius: 6, // Sharper tail
     maxWidth: '85%',
     borderWidth: 1,
     borderColor: palette.border,
@@ -322,14 +340,14 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     backgroundColor: palette.terracotta,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 4,
+    borderBottomLeftRadius: 24, // Reset to match overall roundness
+    borderBottomRightRadius: 6, // Tail on the right side
   },
   aiText: {
     color: palette.ink,
-    fontSize: 16,
+    fontSize: 18, // Scaled up
     fontFamily: typography.sans,
-    lineHeight: 24,
+    lineHeight: 28, // Scaled up for readability
   },
   thinkingBubble: {
     flexDirection: 'row',
@@ -338,11 +356,13 @@ const styles = StyleSheet.create({
   },
   thinkingText: {
     color: palette.muted,
-    fontSize: 14,
+    fontSize: 16, // Scaled up
     fontFamily: typography.sans,
   },
   userText: {
     color: palette.white,
+    fontSize: 18, // Explicitly setting size for user text to match
+    lineHeight: 28,
   },
   inputWrapper: {
     padding: spacing.lg,
@@ -353,8 +373,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: palette.white,
-    borderRadius: 28,
-    padding: 6,
+    borderRadius: 32,
+    padding: 8,
     borderWidth: 1,
     borderColor: palette.border,
     shadowColor: palette.ink,
@@ -365,20 +385,20 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: 56,
-    maxHeight: 140,
-    paddingHorizontal: spacing.md,
-    paddingTop: 16,
-    paddingBottom: 16,
-    fontSize: 16,
+    minHeight: 64,
+    maxHeight: 160,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 20,
+    paddingBottom: 20,
+    fontSize: 18,
     fontFamily: typography.sans,
     color: palette.ink,
   },
   sendButton: {
     backgroundColor: palette.terracotta,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     margin: 4,

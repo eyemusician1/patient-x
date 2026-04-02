@@ -24,14 +24,14 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,
 }));
 
-jest.mock('@react-native-firebase/auth', () => {
-  return () => ({
-    onAuthStateChanged: (callback: (u: any) => void) => {
+jest.mock('../src/services/authService', () => ({
+  AuthService: {
+    onAuthStateChange: (callback: (u: any) => void) => {
       callback(null);
       return () => {};
     },
-  });
-});
+  },
+}));
 
 jest.mock('../src/navigation/AppNavigator', () => ({
   AppNavigator: () => null,

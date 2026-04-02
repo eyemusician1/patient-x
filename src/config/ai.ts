@@ -6,20 +6,29 @@ const DEFAULT_DEV_BACKEND_BASE_URL = Platform.select({
   default: 'http://localhost:8080',
 });
 
+// Replace with your Supabase Functions base URL, e.g. https://<project-ref>.functions.supabase.co
+const SUPABASE_FUNCTIONS_BASE_URL = 'https://ixrheeifgtygmiucohcx.functions.supabase.co';
+const USE_LOCAL_DEV_BACKEND = false;
+
 export const AI_CONFIG = {
-  // Base URL for your backend API, for example: https://api.yourdomain.com
-  // In development, default to a local backend server.
-  backendBaseUrl: __DEV__ ? DEFAULT_DEV_BACKEND_BASE_URL ?? '' : '',
-  // Endpoint that returns an interview reply payload: { text: string }
-  backendInterviewPath: '/ai/interview-reply',
+  // Use Supabase Functions by default in both dev and release.
+  // Flip USE_LOCAL_DEV_BACKEND to true only if you intentionally want local backend in debug.
+  backendBaseUrl:
+    __DEV__ && USE_LOCAL_DEV_BACKEND
+      ? DEFAULT_DEV_BACKEND_BASE_URL ?? ''
+      : SUPABASE_FUNCTIONS_BASE_URL,
+  // For Supabase Edge Functions, this should match your function name.
+  // Full URL example: https://<project-ref>.functions.supabase.co/ai-interview-reply
+  backendInterviewPath: '/ai-interview-reply',
   // Backend can use this policy to route across free-tier models.
   modelRouting: {
     primary: 'gemini-2.5-flash',
-    fallback: 'gemini-2.5-flash-lite',
-    escalation: 'gemini-3.1-flash-lite',
+    fallback: 'gemini-2.5-flash',
+    escalation: 'gemini-2.5-flash',
     maxRetries: 1,
   },
-  // Attach Firebase ID token when available.
+  // Attach Supabase auth token when available.
   includeAuthToken: true,
-  requestTimeoutMs: 12000,
+  // Raised from 12000 to 20000 to avoid cutting off responses on slow connections.
+  requestTimeoutMs: 20000,
 };

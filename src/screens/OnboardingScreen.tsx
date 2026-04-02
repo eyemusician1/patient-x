@@ -454,7 +454,7 @@ export function OnboardingScreen({ navigation }: any) {
 
   return (
     <ImageBackground
-      source={require('../../assets/images/login-bg2.png')}
+      source={require('../../assets/images/login-bg2.jpg')}
       style={styles.background}
       imageStyle={{ opacity: 0.42 }}
       resizeMode="cover"

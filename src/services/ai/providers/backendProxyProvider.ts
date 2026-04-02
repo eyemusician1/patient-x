@@ -1,5 +1,5 @@
-import auth from '@react-native-firebase/auth';
 import { AI_CONFIG } from '../../../config/ai';
+import { getPreferredAuthToken } from '../../authTokenService';
 import { InterviewModelProvider, ModelReplyRequest, ModelReplyResult } from '../types';
 
 function isRetryableStatus(status: number): boolean {
@@ -46,9 +46,8 @@ export const backendProxyProvider: InterviewModelProvider = {
     };
 
     if (AI_CONFIG.includeAuthToken) {
-      const currentUser = auth().currentUser;
-      if (currentUser) {
-        const token = await currentUser.getIdToken();
+      const token = await getPreferredAuthToken();
+      if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
     }

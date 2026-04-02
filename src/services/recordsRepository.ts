@@ -1,8 +1,8 @@
-import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { MedicalRecordsRecord } from '../db/models/MedicalRecordsRecord';
+import { AuthService } from './authService';
 import { DEFAULT_MEDICAL_RECORDS, MedicalRecordsData, MedicineRecord } from '../types/records';
 
 type SyncState = 'pending' | 'synced';
@@ -46,7 +46,7 @@ export function normalizeMedicalRecords(value: unknown): MedicalRecordsData {
 }
 
 function getCurrentUserId(): string {
-  return auth().currentUser?.uid ?? 'local-anonymous';
+  return AuthService.getCurrentUserId() ?? 'local-anonymous';
 }
 
 function recordsCollection() {
