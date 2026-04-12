@@ -1,15 +1,13 @@
-import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { UserProfileRecord } from '../db/models/UserProfileRecord';
 import { AuthService } from './authService';
 import { DEFAULT_PROFILE, UserProfile } from '../types/profile';
+import { supabase } from './supabaseClient'; // adjust path to your supabase client
 
 type SyncState = 'pending' | 'synced';
 
-const PROFILES_COLLECTION = 'user_profiles';
-const REMOTE_PROFILE_FIELD = 'profile';
-const REMOTE_UPDATED_AT_FIELD = 'updatedAt';
+const PROFILES_TABLE = 'user_profiles';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -108,13 +106,20 @@ export async function syncPendingProfileToCloud(userId = getCurrentUserId()): Pr
   const profile = normalizeProfile(JSON.parse(record.profileJson));
   const updatedAt = record.updatedAt || Date.now();
 
-  await firestore().collection(PROFILES_COLLECTION).doc(userId).set(
-    {
-      [REMOTE_PROFILE_FIELD]: profile,
-      [REMOTE_UPDATED_AT_FIELD]: updatedAt,
-    },
-    { merge: true }
-  );
+  const { error } = await supabase
+    .from(PROFILES_TABLE)
+    .upsert(
+      {
+        user_id: userId,
+        profile,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    throw new Error(`Failed to sync profile to Supabase: ${error.message}`);
+  }
 
   await database.write(async () => {
     await record.update((row) => {
@@ -129,14 +134,18 @@ export async function pullRemoteProfileToLocal(userId = getCurrentUserId()): Pro
     return null;
   }
 
-  const doc = await firestore().collection(PROFILES_COLLECTION).doc(userId).get();
-  const data = doc.data();
-  if (!data || !data[REMOTE_PROFILE_FIELD]) {
+  const { data, error } = await supabase
+    .from(PROFILES_TABLE)
+    .select('profile, updated_at')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data || !data.profile) {
     return null;
   }
 
-  const remoteProfile = normalizeProfile(data[REMOTE_PROFILE_FIELD]);
-  const remoteUpdatedAt = Number(data[REMOTE_UPDATED_AT_FIELD] ?? 0);
+  const remoteProfile = normalizeProfile(data.profile);
+  const remoteUpdatedAt = Number(data.updated_at ?? 0);
   const local = await getLocalRecord(userId);
 
   if (local && local.updatedAt > remoteUpdatedAt) {

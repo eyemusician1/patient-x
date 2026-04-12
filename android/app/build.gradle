@@ -117,4 +117,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+// Google services plugin (used to generate OAuth client IDs from google-services.json)
 apply plugin: 'com.google.gms.google-services'

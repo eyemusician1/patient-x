@@ -1,15 +1,13 @@
-import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { InterviewSessionRecord } from '../db/models/InterviewSessionRecord';
 import { AuthService } from './authService';
 import { INITIAL_INTERVIEW_PROMPT, InterviewMessage, InterviewSession } from '../types/interview';
+import { supabase } from './supabaseClient'; // adjust if your path differs
 
 type SyncState = 'pending' | 'synced';
 
-const INTERVIEW_COLLECTION = 'user_interview_sessions';
-const REMOTE_SESSION_FIELD = 'session';
-const REMOTE_UPDATED_AT_FIELD = 'updatedAt';
+const INTERVIEW_TABLE = 'user_interview_sessions';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -186,15 +184,23 @@ export async function syncPendingInterviewSessionsToCloud(userId = getCurrentUse
     }
 
     const updatedAt = row.updatedAt || Date.now();
-    await firestore().collection(INTERVIEW_COLLECTION).doc(`${userId}_${parsed.sessionId}`).set(
-      {
-        userId,
-        sessionId: parsed.sessionId,
-        [REMOTE_SESSION_FIELD]: parsed,
-        [REMOTE_UPDATED_AT_FIELD]: updatedAt,
-      },
-      { merge: true }
-    );
+
+    const { error } = await supabase
+      .from(INTERVIEW_TABLE)
+      .upsert(
+        {
+          doc_id: `${userId}_${parsed.sessionId}`,
+          user_id: userId,
+          session_id: parsed.sessionId,
+          session: parsed,
+          updated_at: updatedAt,
+        },
+        { onConflict: 'doc_id' }
+      );
+
+    if (error) {
+      throw new Error(`Failed to sync interview session to Supabase: ${error.message}`);
+    }
 
     await database.write(async () => {
       await row.update((record) => {
@@ -210,16 +216,22 @@ export async function pullRemoteInterviewSessionsToLocal(userId = getCurrentUser
     return;
   }
 
-  const snapshot = await firestore().collection(INTERVIEW_COLLECTION).where('userId', '==', userId).get();
+  const { data, error } = await supabase
+    .from(INTERVIEW_TABLE)
+    .select('session, updated_at')
+    .eq('user_id', userId);
 
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    const remoteSession = normalizeInterviewSession(data[REMOTE_SESSION_FIELD]);
+  if (error || !data) {
+    return;
+  }
+
+  for (const row of data) {
+    const remoteSession = normalizeInterviewSession(row.session);
     if (!remoteSession) {
       continue;
     }
 
-    const remoteUpdatedAt = Number(data[REMOTE_UPDATED_AT_FIELD] ?? 0);
+    const remoteUpdatedAt = Number(row.updated_at ?? 0);
     const local = await getSessionRecord(userId, remoteSession.sessionId);
 
     if (local && local.updatedAt > remoteUpdatedAt) {

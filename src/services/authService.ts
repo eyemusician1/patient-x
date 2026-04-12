@@ -64,10 +64,25 @@ export const AuthService = {
 
       // 2. Get the user's ID token from Google
       const signInResult = await GoogleSignin.signIn();
-      const idToken = signInResult.data?.idToken;
+
+      // Prefer explicit token retrieval which is more reliable across versions
+      let idToken: string | undefined;
+      try {
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      } catch (e) {
+        // ignore and try fallbacks
+      }
+
+      // Fallbacks for different shapes returned by older/newer versions
+      idToken =
+        idToken ||
+        (signInResult as any).idToken ||
+        (signInResult as any).data?.idToken ||
+        (signInResult as any).user?.idToken;
 
       if (!idToken) {
-        throw new Error('No ID token found');
+        throw new Error('No ID token found from Google Sign-In');
       }
 
       const { data, error } = await supabase.auth.signInWithIdToken({
@@ -83,8 +98,21 @@ export const AuthService = {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+
       if (message.includes('AuthRetryableFetchError') || message.includes('status":0') || message.includes('status: 0')) {
         throw new Error('Supabase auth request failed (network/status 0). Check internet on device/emulator and verify Google Client IDs in Supabase Auth provider.');
+      }
+
+      // DEVELOPER_ERROR (code 10) indicates OAuth config mismatch (SHA-1/package/client ID)
+      if (message.includes('DEVELOPER_ERROR') || (error as any)?.code === 10 || (error as any)?.code === '10') {
+        logAuthError('Google Sign-In DEVELOPER_ERROR (10) — likely SHA-1 / package name or OAuth client mismatch', {
+          error: error,
+          configuredWebClientId: SUPABASE_CONFIG.googleWebClientId,
+        });
+
+        throw new Error(
+          'Google Sign-In DEVELOPER_ERROR (10): check that your Android app package name and SHA-1 fingerprint are registered in the Google Console / Firebase project, that you downloaded and placed the correct google-services.json at android/app/, and that SUPABASE_CONFIG.googleWebClientId matches your Web OAuth client ID.'
+        );
       }
 
       logAuthError('Google Sign-In failed', error);

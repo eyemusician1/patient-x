@@ -1,15 +1,13 @@
-import firestore from '@react-native-firebase/firestore';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../db/database';
 import { MedicalRecordsRecord } from '../db/models/MedicalRecordsRecord';
 import { AuthService } from './authService';
 import { DEFAULT_MEDICAL_RECORDS, MedicalRecordsData, MedicineRecord } from '../types/records';
+import { supabase } from './supabaseClient'; // adjust if your path differs
 
 type SyncState = 'pending' | 'synced';
 
-const RECORDS_COLLECTION = 'user_records';
-const REMOTE_RECORDS_FIELD = 'records';
-const REMOTE_UPDATED_AT_FIELD = 'updatedAt';
+const RECORDS_TABLE = 'user_records';
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -119,13 +117,20 @@ export async function syncPendingMedicalRecordsToCloud(userId = getCurrentUserId
   const records = normalizeMedicalRecords(JSON.parse(record.recordsJson));
   const updatedAt = record.updatedAt || Date.now();
 
-  await firestore().collection(RECORDS_COLLECTION).doc(userId).set(
-    {
-      [REMOTE_RECORDS_FIELD]: records,
-      [REMOTE_UPDATED_AT_FIELD]: updatedAt,
-    },
-    { merge: true }
-  );
+  const { error } = await supabase
+    .from(RECORDS_TABLE)
+    .upsert(
+      {
+        user_id: userId,
+        records,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    throw new Error(`Failed to sync medical records to Supabase: ${error.message}`);
+  }
 
   await database.write(async () => {
     await record.update((row) => {
@@ -140,14 +145,18 @@ export async function pullRemoteMedicalRecordsToLocal(userId = getCurrentUserId(
     return null;
   }
 
-  const doc = await firestore().collection(RECORDS_COLLECTION).doc(userId).get();
-  const data = doc.data();
-  if (!data || !data[REMOTE_RECORDS_FIELD]) {
+  const { data, error } = await supabase
+    .from(RECORDS_TABLE)
+    .select('records, updated_at')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data || !data.records) {
     return null;
   }
 
-  const remoteRecords = normalizeMedicalRecords(data[REMOTE_RECORDS_FIELD]);
-  const remoteUpdatedAt = Number(data[REMOTE_UPDATED_AT_FIELD] ?? 0);
+  const remoteRecords = normalizeMedicalRecords(data.records);
+  const remoteUpdatedAt = Number(data.updated_at ?? 0);
   const local = await getLocalRecord(userId);
 
   if (local && local.updatedAt > remoteUpdatedAt) {
